@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prokudin-Gorskii Image Processing Results</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #4a90e2;
+        }
+
+        p {
+            max-width: 900px;
+            margin: 20px auto;
+            line-height: 1.6;
+        }
+
+        .gallery {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .gallery img {
+            width: 300px; /* Set a fixed width for all images */
+            height: auto; /* Keep the aspect ratio */
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .gallery img:hover {
+            transform: scale(1.05); /* Add a slight hover effect */
+        }
+
+        .image-card {
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .description {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 14px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Prokudin-Gorskii Image Alignment Project</h1>
+
+        <p>This project involves the development of an algorithm that processes early color photographs, such as those from the Prokudin-Gorskii collection, by aligning and merging the red, green, and blue channels. The goal is to recreate the full-color image from separate grayscale channels. The process includes alignment using structural similarity (SSIM), contrast adjustments, and edge-based image alignment to achieve the best quality.</p>
+
+        <h2>Approach</h2>
+
+        <p>
+            <strong>1. Channel Extraction:</strong> The three color channels (blue, green, and red) are extracted from a single grayscale image. These channels are then aligned with respect to the blue channel, which acts as the reference. The alignment is done based on the similarity of the images, measured using either SSIM or normalized cross-correlation (NCC).<br>
+            <strong>2. Alignment Using SSIM and Edge Detection:</strong> SSIM is calculated between the reference and target channels to find the best alignment. Edge detection using the Sobel operator is employed to focus on structural details, improving the accuracy of the alignment.<br>
+            <strong>3. Parallelization for Speed:</strong> The alignment process is parallelized to improve the computation time, especially when dealing with large offsets. Multiple shifts are tried in parallel using <code>ThreadPoolExecutor</code>.<br>
+            <strong>4. Image Pyramid for Coarse-to-Fine Alignment:</strong> A multi-level pyramid approach is used to handle large images. The algorithm starts with downsampled versions of the image, finding the best alignment at each level and refining the alignment as it moves to higher resolutions.<br>
+            <strong>5. Automatic Cropping and Contrast Adjustment:</strong> After alignment, automatic cropping removes the borders where misalignment occurs. Contrast is then adjusted so that the image has a balanced intensity range.
+        </p>
+
+        <h2>Problems Encountered and Solutions</h2>
+        <p>
+            <strong>Alignment Failures:</strong> In some images, significant misalignment occurred due to large offsets or significant rotations, which the algorithm does not currently handle. A possible improvement would be to implement rotational alignment and scaling.<br>
+            <strong>Border Misalignment:</strong> Due to imperfect alignment, there were often visible borders. The solution was to implement automatic cropping based on image gradients, which removes the problematic regions.<br>
+            <strong>Contrast Issues:</strong> Some images appeared washed out or too dark. The automatic contrast adjustment normalized the pixel intensities, improving the visual quality without requiring manual intervention.
+        </p>
+
+        <h2>Bells and Whistles Implemented</h2>
+        <p>
+            <strong>1. Automatic Cropping:</strong> Automatically detects and removes borders where the channels do not align properly, based on gradients (implemented in <code>crop_borders</code>).<br>
+            <strong>2. Automatic Contrast Adjustment:</strong> Adjusts the image intensities to scale from 0 to 1 for improved visual contrast (implemented in <code>automatic_contrast</code>).<br>
+            <strong>3. Edge-based Alignment (Sobel Detection):</strong> Uses Sobel edge detection to align images based on structural features rather than raw pixel values, improving the accuracy of alignment (implemented in <code>align_images_ssim</code>).
+        </p>
+
+        <h2>Results</h2>
+        <p>Below are the results of the algorithm applied to 14 images, including two from the Prokudin-Gorskii collection. Offsets are shown for each image.</p>
+
+        <div class="gallery">
+            <!-- Example images and results -->
+            <div class="image-card">
+                <img src="./media/cathedral.jpg" alt="Cathedral">
+                <div class="description">
+                    <strong>Cathedral</strong><br>
+                    Green Offset: (-1, 1) | Red Offset: (-1, 7)
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/church.jpg" alt="Church">
+                <div class="description">
+                    <strong>Tobolsk</strong><br>
+                    Green Offset: (-2, 77) | Red Offset: (-15, 41)
+                </div>
+            </div>
+
+            <!-- Add other 12 images below -->
+            <div class="image-card">
+                <img src="./media/emir.jpg" alt="Emir">
+                <div class="description">
+                    <strong>Example Image 3</strong><br>
+                    Green Offset: (9, 49) | Red Offset: (17, 125)
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/harvesters.jpg" alt="Harvesters">
+                <div class="description">
+                    <strong>Example Image 4</strong><br>
+                    Green Offset: (-6, 77) | Red Offset: (2, 133)
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/icon.jpg" alt="Icon">
+                <div class="description">
+                    <strong>Example Image 5</strong><br>
+                    Green Offset: 2 | Red Offset: 4
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/lady.jpg" alt="Lady">
+                <div class="description">
+                    <strong>Example Image 6</strong><br>
+                    Green Offset: (-10, 61) | Red Offset: (-19, 95)
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/melons.jpg" alt="Melons">
+                <div class="description">
+                    <strong>Example Image 7</strong><br>
+                    Green Offset: (-13, 77) | Red Offset: (-23, 51)
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/monastery.jpg" alt="Monastery">
+                <div class="description">
+                    <strong>Example Image 8</strong><br>
+                    Green Offset: 4 | Red Offset: 5
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/onion_church.jpg" alt="Onion Church">
+                <div class="description">
+                    <strong>Example Image 9</strong><br>
+                    Green Offset: -4 | Red Offset: -6
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/sculpture.jpg" alt="Sculpture">
+                <div class="description">
+                    <strong>Example Image 10</strong><br>
+                    Green Offset: (6, 61) | Red Offset: (-21, 65)
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/three_generations.jpg" alt="Three Generations">
+                <div class="description">
+                    <strong>Example Image 11</strong><br>
+                    Green Offset: (0, 47) | Red Offset: (-1, 106)
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/tobolsk.jpg" alt="Tobolsk">
+                <div class="description">
+                    <strong>Example Image 12</strong><br>
+                    Green Offset: -2 | Red Offset: (3, 109)
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/train.jpg" alt="Train">
+                <div class="description">
+                    <strong>Example Image 13</strong><br>
+                    Green Offset: (-9, 89) | Red Offset: 7
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/self_portrait" alt="Self Portrait">
+                <div class="description">
+                    <strong>Example Image 14</strong><br>
+                    Green Offset: -3 | Red Offset: -5
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Prokudin-Gorskii Image Processing Project &copy; 2024</p>
+        </footer>
+    </div>
+</body>
+</html>
