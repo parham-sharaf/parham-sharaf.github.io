@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project 2: To-Do List App</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #4a90e2;
+        }
+
+        p {
+            max-width: 900px;
+            margin: 20px auto;
+            line-height: 1.6;
+        }
+
+        .gallery {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .gallery img {
+            width: 300px; /* Set a fixed width for all images */
+            height: auto; /* Keep the aspect ratio */
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .gallery img:hover {
+            transform: scale(1.05); /* Add a slight hover effect */
+        }
+
+        .image-card {
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .description {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 14px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Part 1: Finite Difference Operator and Derivative of Gaussian Filters</h1>
+
+        <p>This section shows the results of applying the finite difference operator and derivative of Gaussian (DoG) filters to detect edges in the cameraman image.</p>
+
+        <h2>Part 1.1: Finite Difference Operator</h2>
+        <p>In this part, we convolve the image with finite difference operators in the X and Y directions to compute the partial derivatives and gradient magnitude.
+            Gradient magnitude computation involves calculating the rate of intensity change at each pixel using the Euclidean norm of the partial derivatives in the 𝑥 and 𝑦
+            directions. This is done by convolving the image with finite difference kernels to obtain the derivatives, then combining them to compute the gradient magnitude. A threshold can be applied to highlight edges.
+            Below are the results:
+        </p>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/cameraman_partial_x.png" alt="Partial Derivative X">
+                <div class="description">
+                    <strong>Partial Derivative in X</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/cameraman_partial_y.png" alt="Partial Derivative Y">
+                <div class="description">
+                    <strong>Partial Derivative in Y</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/cameraman_gradient_magnitude.png" alt="Gradient Magnitude">
+                <div class="description">
+                    <strong>Gradient Magnitude</strong>
+                </div>
+            </div>
+        </div>
+
+        <h2>Edge Thresholding</h2>
+        <p>After calculating the gradient magnitude, we applied a threshold to create a binary edge image. Below is the thresholded edge image:</p>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/edge_threshold.png" alt="Edge Threshold">
+                <div class="description">
+                    <strong>Edge Threshold Image</strong>
+                </div>
+            </div>
+        </div>
+
+        <h2>Part 1.2: Derivative of Gaussian (DoG) Filter</h2>
+
+        <!-- Part 1.2a: Smoothing and Differentiating -->
+        <h3>Part 1.2a: Smoothing Followed by Differentiating</h3>
+        <p>In this part, we applied a Gaussian filter to smooth the image first, and then computed the partial derivatives in X and Y directions. Below are the results after smoothing and differentiating:</p>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/cameraman_smooth_partial_x.png" alt="Smoothed Partial Derivative X">
+                <div class="description">
+                    <strong>Smoothed Partial Derivative in X</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/cameraman_smooth_partial_y.png" alt="Smoothed Partial Derivative Y">
+                <div class="description">
+                    <strong>Smoothed Partial Derivative in Y</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/cameraman_gradient_magnitude_DoG.png" alt="Gradient Magnitude">
+                <div class="description">
+                    <strong>Gradient Magnitude DoG</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Part 1.2b: DoG Filters -->
+        <h3>Part 1.2b: Derivative of Gaussian (DoG) Filter</h3>
+        <p>Next, we used the DoG filter, which combines smoothing and differentiation in a single step. Below are the results using the DoG filter:</p>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/cameraman_partial_x_DoG.png" alt="DoG Partial Derivative X">
+                <div class="description">
+                    <strong>Partial Derivative in X (DoG)</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/cameraman_partial_y_DoG.png" alt="DoG Partial Derivative Y">
+                <div class="description">
+                    <strong>Partial Derivative in Y (DoG)</strong>
+                </div>
+            </div>
+        </div>
+
+        <p> What differences do you see? When Gaussian smoothing is applied before differentiating, the resulting edges are smoother and less noisy compared to Part 1.1, which directly applies the finite difference operator. The smoothing step in this part reduces sensitivity to minor intensity variations, highlighting more meaningful edges while suppressing noise. In contrast, Part 1.1 produces noisier results, making it harder to isolate clear edges.</p>
+
+
+        <!-- Verification -->
+        <h3>Verification: Comparison of Results</h3>
+        <p>To verify that the DoG filter produces the same result as smoothing first and then differentiating, we compare the images generated by both methods. As shown below, the images for the X and Y partial derivatives using the two methods are nearly identical:</p>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/cameraman_smooth_partial_x.png" alt="Smoothed Partial Derivative X">
+                <div class="description">
+                    <strong>Smoothed Partial Derivative in X</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/cameraman_partial_x_DoG.png" alt="DoG Partial Derivative X">
+                <div class="description">
+                    <strong>DoG Partial Derivative in X</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/cameraman_smooth_partial_y.png" alt="Smoothed Partial Derivative Y">
+                <div class="description">
+                    <strong>Smoothed Partial Derivative in Y</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/cameraman_partial_y_DoG.png" alt="DoG Partial Derivative Y">
+                <div class="description">
+                    <strong>DoG Partial Derivative in Y</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Part 2.1: Unsharp Masking -->
+        <h2>Part 2.1: Unsharp Masking</h2>
+        <p>
+            In this section, we use the unsharp masking technique to enhance the sharpness of a blurry image by adding back the high-frequency components. We first demonstrate the sharpening on a selected blurry image and then on a few example images.
+        </p>
+
+        <!-- Blurry Image Sharpening -->
+        <h3>Blurry Image to Sharpened</h3>
+        <p>This image was initially blurry, but after applying the unsharp masking filter, the image looks sharper and more detailed.</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/berkeley_blurred.jpg" alt="Original Blurry image">
+                <div class="description">
+                    <strong>Blurry Image of Berkeley</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/berkeley_sharpened.jpg" alt="Sharpened Image">
+                <div class="description">
+                    <strong>Sharpened Image of Berkeley</strong>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Taj Mahal: Original, Blurred, and Sharpened -->
+        <h3>Taj Mahal: Original, Blurred, and Sharpened</h3>
+        <p>Below are the three phases of processing the image: the original image, a blurred version, and the final sharpened version after applying unsharp masking.</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/taj_original.jpg" alt="Taj Mahal Original">
+                <div class="description">
+                    <strong>Original Image</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/taj_blurred.jpg" alt="Taj Mahal Blurred">
+                <div class="description">
+                    <strong>Blurred Image</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/taj_sharpened.jpg" alt="Taj Mahal Sharpened">
+                <div class="description">
+                    <strong>Sharpened Image</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inception: Original Sharp, Blurred, and Re-Sharpened -->
+        <h3>Inception: Original Sharp, Blurred, and Re-Sharpened</h3>
+        <p>Here we evaluate the unsharp masking technique by taking a sharp image, blurring it, and then attempting to sharpen it again. We compare the original sharp image, the blurred version, and the sharpened result.</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/inception_original.jpg" alt="Inception Original Sharp">
+                <div class="description">
+                    <strong>Original Sharp Image</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/inception_blurred.jpg" alt="Inception Blurred">
+                <div class="description">
+                    <strong>Blurred Image</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/inception_sharpened.jpg" alt="Inception Re-Sharpened">
+                <div class="description">
+                    <strong>Re-Sharpened Image</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Part 2.2: Hybrid Images -->
+        <h2>Part 2.2: Hybrid Images</h2>
+        <p>
+            In this section, we create hybrid images using the method described in the SIGGRAPH 2006 paper by Oliva, Torralba, and Schyns. Hybrid images combine the high-frequency components of one image with the low-frequency components of another. The resulting images show different visual content depending on the viewing distance.
+        </p>
+
+        <!-- Derek and Nutmeg Images -->
+        <h3>Derek and Nutmeg: Hybrid Image Example</h3>
+        <p>
+            We begin by showing both the color and grayscale versions of Derek and Nutmeg as a reference for creating a hybrid image.
+        </p>
+        <div class="gallery">
+            <!-- Derek and Nutmeg stacked vertically -->
+            <div class="image-column">
+                <div class="image-card">
+                    <img src="./data/DerekPicture.jpg" alt="Derek Color Image">
+                    <div class="description">
+                        <strong>Derek</strong>
+                    </div>
+                </div>
+                <div class="image-card">
+                    <img src="./data/nutmeg.jpg" alt="Nutmeg Color Image">
+                    <div class="description">
+                        <strong>Nutmeg</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hybrid images side-by-side -->
+            <div class="image-row">
+                <div class="image-card">
+                    <img src="./media/hybrid_image_Derek_nutmeg.jpg" alt="Hybrid Image (Grayscale)">
+                    <div class="description">
+                        <strong>Hybrid (Grayscale)</strong>
+                    </div>
+                </div>
+                <div class="image-card">
+                    <img src="./media/hybrid_image_Derek_nutmeg_color.jpg" alt="Hybrid Image (Color)">
+                    <div class="description">
+                        <strong>Hybrid (Color)</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Skeleton and Muscle Images -->
+        <h3>Skeleton and Muscle: Hybrid Image Example</h3>
+        <p>
+            Next, we demonstrate the hybrid image creation with a pair of skeleton and muscle images. Below are the color versions followed by the grayscale versions with their corresponding frequency domain representations.
+        </p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/skeleton.jpeg" alt="Skeleton Color Image">
+                <div class="description">
+                    <strong>Skeleton</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./data/muscle.jpeg" alt="Skeleton Color Image">
+                <div class="description">
+                    <strong>Muscle</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grayscale and FFT of Skeleton and Muscle -->
+        <h4>Grayscale and Frequency Analysis</h4>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/muscle_fft.jpg" alt="Muscle FFT Image">
+                <div class="description">
+                    <strong>Muscle (FFT)</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/skeleton_fft.jpg" alt="Skeleton FFT Image">
+                <div class="description">
+                    <strong>Skeleton (FFT)</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/muscle_skeleton_hybrid_fft.jpg" alt="Muscle and Skeleton FFT Image">
+                <div class="description">
+                    <strong>Muscle and Skeleton (FFT)</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/hybrid_image_muscle_skeleton.jpg" alt="muscle skeleton hybrid">
+                <div class="description">
+                    <strong>Muscle and Skeleton Hybrid</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flower and Ladybug Images -->
+        <h3>Flower and Ladybug: Hybrid Image Example</h3>
+        <p>
+            Lastly, we combine a flower and a ladybug image to create a hybrid image. Below are the original color images, followed by the grayscale versions and the final hybrid image.
+        </p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/flower.jpg" alt="Flower Color Image">
+                <div class="description">
+                    <strong>Flower</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./data/lady_bug.jpg" alt="Ladybug Color Image">
+                <div class="description">
+                    <strong>Ladybug</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/hybrid_image_flower_lady_bug.jpg" alt="Ladybug Color Image">
+                <div class="description">
+                    <strong>Flower and Ladybug Hybrid</strong>
+                </div>
+            </div>
+        </div>
+
+                <!-- Flower and Ladybug Images -->
+        <h3>Fish and Ocean: Hybrid Image Example</h3>
+        <p>
+            However, we can't always create hybrid images easily. There are several reasons as to why we can't easily make hybrid between two images.
+            In this example of Fish and Ocean, we have lack of complexity between two images, as well as lack of visual contrast. This means when creating the
+            low-pass and high-pass filter, we run into trouble as they overlap easily. So it becomes hard to distinguish the images
+        </p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/fish.jpg" alt="Fish Color Image">
+                <div class="description">
+                    <strong>Flower</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./data/ocean.jpg" alt="Ocean Color Image">
+                <div class="description">
+                    <strong>Ladybug</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/hybrid_image_fish_ocean.jpg" alt="Ladybug Color Image">
+                <div class="description">
+                    <strong>Flower and Ladybug Hybrid</strong>
+                </div>
+            </div>
+        </div>
+        <!-- Part 2.3: Gaussian and Laplacian Stacks -->
+        <h2>Part 2.3: Gaussian and Laplacian Stacks</h2>
+        <p>In this section, we implemented Gaussian and Laplacian stacks to prepare for multi-resolution blending. These stacks maintain the same resolution at each level, unlike pyramids where images are downsampled. Below are the results of applying the Gaussian and Laplacian stacks to the Oraple (apple and orange blend).</p>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/laplacian_comparison_oraple.jpg" alt="Gaussian Stack Level 1">
+                <div class="description">
+                    <strong>Gaussian Stack Levels</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Displaying the Oraple result after stacking -->
+        <h3>Oraple Blended using Laplacian Stack</h3>
+        <p>Below is the blended result of the Oraple using Gaussian and Laplacian stacks to create a seamless transition between the apple and orange images.</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/blended_oraple.jpg" alt="Oraple Result">
+                <div class="description">
+                    <strong>Blended Oraple</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Part 2.4: Multiresolution Blending -->
+        <h2>Part 2.4: Multiresolution Blending (The Oraple!)</h2>
+        <p>In this section, we applied multiresolution blending techniques to seamlessly merge two images using Gaussian and Laplacian stacks, inspired by the 1983 paper by Burt and Adelson. We started with the classic example of blending an apple and an orange (the Oraple), and then experimented with blending other creative image pairs.</p>
+
+<!--        <h3>Oraple: Apple and Orange Blending</h3>-->
+<!--        <p>Below are the results of blending the apple and orange images using a vertical seam and a Gaussian-blurred mask. The Gaussian stack was also applied to the mask, which helped in smoothing the transition between the two images.</p>-->
+<!--        <div class="gallery">-->
+<!--            <div class="image-card">-->
+<!--                <img src="./media/oraple_apple.png" alt="Apple Image">-->
+<!--                <div class="description">-->
+<!--                    <strong>Apple Image</strong>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            <div class="image-card">-->
+<!--                <img src="./media/oraple_orange.png" alt="Orange Image">-->
+<!--                <div class="description">-->
+<!--                    <strong>Orange Image</strong>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            <div class="image-card">-->
+<!--                <img src="./media/oraple_mask.png" alt="Mask Image">-->
+<!--                <div class="description">-->
+<!--                    <strong>Mask Image</strong>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--            <div class="image-card">-->
+<!--                <img src="./media/oraple_blend.png" alt="Oraple Blend">-->
+<!--                <div class="description">-->
+<!--                    <strong>Oraple Blend</strong>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+
+        <!-- Creative Image Blending Examples -->
+        <h3>Creative Image Blending Examples</h3>
+        <p>We experimented with blending two other image pairs using irregular masks for more creative results. Below are some examples:</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/joker.jpeg" alt="Joker">
+                <div class="description">
+                    <strong>Joker</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./data/harley_quinn.jpeg" alt="Harley">
+                <div class="description">
+                    <strong>Harley</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/mask_250.jpg" alt="Mask for Blend">
+                <div class="description">
+                    <strong>Mask for Blend</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/laplacian_comparison_joker_harley.jpg" alt="Laplacian Levels JH" class="large-image">
+                <div class="description">
+                    <strong>Laplacian Levels</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/blended_joker_harley.jpg" alt="Blend of joker and harley">
+                <div class="description">
+                    <strong>Blend of joker and harley</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/eye.jpg" alt="Eye">
+                <div class="description">
+                    <strong>Eye</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./data/newyork.jpg" alt="New York">
+                <div class="description">
+                    <strong>New York</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/mask_73_30.jpg" alt="Mask for Blend">
+                <div class="description">
+                    <strong>Mask for Blend</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/laplacian_comparison_eye_newyork.jpg" alt="Blend of an Eye and New York">
+                <div class="description">
+                    <strong>Laplacian Levels</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/blended_eye_newyork.jpg" alt="Blend of an Eye and New York">
+                <div class="description">
+                    <strong>Blend of an Eye and New York</strong>
+                </div>
+            </div>
+
+        </div>
+
+        <footer>
+            <p>Project Fun with Filters and Frequencies! &copy; 2024</p>
+        </footer>
+    </div>
+</body>
+</html>

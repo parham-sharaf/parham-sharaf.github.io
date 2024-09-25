@@ -1,0 +1,78 @@
+/* Reset */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+footer {
+    text-align: center;
+    margin-top: 40px;
+    font-size: 14px;
+    color: #aaa;
+}
+
+/* Container styling */
+.todo-container {
+    max-width: 600px;
+    background-color: white;
+    margin: 0 auto;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Gallery and Image Card Styling */
+.gallery {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping */
+    justify-content: center;
+    gap: 15px; /* Adjust the gap between images */
+    padding: 20px;
+}
+
+/* Styles for regular gallery images */
+.gallery img {
+    width: 150px; /* Scale down the images */
+    height: auto; /* Keep aspect ratio */
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease;
+}
+
+/* Hover effect for images */
+.gallery img:hover {
+    transform: scale(1.05); /* Hover effect to slightly enlarge the image */
+}
+
+/* Image card styling */
+.image-card {
+    text-align: center;
+    max-width: none; /* Allow card to expand for larger images */
+}
+
+/* Description below the image */
+.description {
+    margin-top: 10px;
+    font-size: 12px; /* Smaller font size to fit with scaled images */
+    color: #555;
+}
+
+/* Large image styling to override the default gallery image size */
+.large-image {
+    width: 100%;  /* Make it take up the full width of its container */
+    max-width: 600px; /* Limit the maximum size to 600px */
+    height: auto; /* Maintain aspect ratio */
+}
