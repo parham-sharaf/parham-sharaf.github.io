@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project 3: Face Morphing</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #4a90e2;
+        }
+
+        p {
+            max-width: 900px;
+            margin: 20px auto;
+            line-height: 1.6;
+        }
+
+        .gallery {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .gallery img {
+            width: 300px;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .gallery img:hover {
+            transform: scale(1.05);
+        }
+
+        .image-card {
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .description {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 14px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Project 3: Face Morphing</h1>
+        <p>In this project, we explore face morphing, population means, and caricature generation through image warping and cross-dissolve techniques.</p>
+
+        <h2>Part 1: Defining Correspondences</h2>
+        <p>In this section, we manually labeled corresponding points on Elon Musk and Christian Bale's images to define key features like eyes, mouth, and chin. We then computed a Delaunay triangulation for the morphing process.</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/elon.jpg" alt="Original Elon Musk">
+                <div class="description">
+                    <strong>Elon Musk</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/elon_with_landmarks.jpg" alt="Elon with landmarks">
+                <div class="description">
+                    <strong>Elon Musk with Landmarks</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/elon_triangulation.jpg" alt="Elon triangulation">
+                <div class="description">
+                    <strong>Elon Musk triangulation</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./data/christian.jpg" alt="Original Christian Bale">
+                <div class="description">
+                    <strong>Christian Bale</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/christian_with_landmarks.jpg" alt="Christian with landmarks">
+                <div class="description">
+                    <strong>Christian Bale with landmarks</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/christian_triangulation.jpg" alt="Christian triangulation">
+                <div class="description">
+                    <strong>Christian Bale triangulation</strong>
+                </div>
+            </div>
+
+        </div>
+
+        <h2>Part 2: Computing the Mid-way Face</h2>
+        <p>We computed the average shape between the two faces, warped both faces into this shape, and averaged the colors to produce the mid-way face.</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/elon.jpg" alt="Original Elon Musk">
+                <div class="description">
+                    <strong>Elon Musk</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/elon_christian_midway_face.jpg" alt="Elon Christian Midway face">
+                <div class="description">
+                    <strong>Elon Christian Midway face</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./data/christian.jpg" alt="Original Christian Bale">
+                <div class="description">
+                    <strong>Christian Bale</strong>
+                </div>
+            </div>
+        </div>
+
+        <h2>Part 3: The Morph Sequence</h2>
+        <p>Using our defined correspondences and the morphing function, we generated 45 frames of smooth transformation from Elon Musk's image to Christian Bale's image. Below is a GIF of the morph sequence.</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/elon_christian_morph_animation.gif" alt="Morphing">
+                <div class="description">
+                    <strong>Elon Musk and Christian Bale Morphing</strong>
+                </div>
+            </div>
+        </div>
+
+        <p>Some other examples are also provided below</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/parham.jpg" alt="parham">
+                <div class="description">
+                    <strong>Parham (me)</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./data/conor.jpg" alt="conor">
+                <div class="description">
+                    <strong>Conor Mcgregor</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/parham_conor_morph_animation.gif" alt="Conor Parham Morphing">
+                <div class="description">
+                    <strong>Parham and Conor Mcgregor Morphing</strong>
+                </div>
+            </div>
+        </div>
+
+        <h2>Part 4: The Mean Face of a Population</h2>
+        <p>We computed the average face shape from FEI face dataset of annotated faces, warped each face to the average shape, and then computed the mean face of the population.</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/population_mean_face.jpg" alt="Mean Population Face">
+                <div class="description">
+                    <strong>Mean Population Face</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/frontalimages_manuallyaligned_part1/58a.jpg" alt="Example face 1">
+                <div class="description">
+                    <strong>Example face 1</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/morphed_face_0.jpg" alt="Example face 1 morphed">
+                <div class="description">
+                    <strong>Example face 1 morphed</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/frontalimages_manuallyaligned_part1/43a.jpg" alt="Example face 2">
+                <div class="description">
+                    <strong>Example face 2</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/morphed_face_1.jpg" alt="Example face 2 morphed">
+                <div class="description">
+                    <strong>Example face 2 morphed</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/frontalimages_manuallyaligned_part1/12a.jpg" alt="Example face 3">
+                <div class="description">
+                    <strong>Example face 3</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/morphed_face_2.jpg" alt="Example face 3 morphed">
+                <div class="description">
+                    <strong>Example face 3 morphed</strong>
+                </div>
+            </div>
+        </div>
+        <p>Here is my face warped into the average geometry, and the average face warped into my geometry</p>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/morphed_to_mean_parham.jpg" alt="my face to average">
+                <div class="description">
+                    <strong>My Face to Average Geometry</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/mean_to_my_shape.jpg" alt="Average Geometry to My Face">
+                <div class="description">
+                    <strong>Average Geometry to My Face</strong>
+                </div>
+            </div>
+        </div>
+
+        <h2>Part 5: Caricatures</h2>
+        <p>By extrapolating from the population mean, I created a caricature of my face. Below are the results of this exaggeration.</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/parham.jpg" alt="My Face">
+                <div class="description">
+                    <strong>My Face</strong>
+                </div>
+            </div>
+
+           <div class="image-card">
+                <img src="./media/caricature_parham.jpg" alt="Caricature of My Face">
+                <div class="description">
+                    <strong>Caricature of My Face</strong>
+                </div>
+            </div>
+
+        </div>
+
+        <h2>Bells and Whistles: Non-linear face-morphing</h2>
+        <p>Finally we can get creative with the images and construct some of the functionalities of liquify filter from photoshop. Here we have the picture of Daniel Radcliffe twirled and shrunk</p>
+         <div class="gallery">
+            <div class="image-card">
+                <img src="./data/daniel-bk.jpg" alt="My Face">
+                <div class="description">
+                    <strong>Daniel Radcliffe Original</strong>
+                </div>
+            </div>
+
+           <div class="image-card">
+                <img src="./media/transformed_image.jpg" alt="Caricature of My Face">
+                <div class="description">
+                    <strong>Caricature of Daniel Radcliffe</strong>
+                </div>
+            </div>
+
+        </div>
+        <footer>
+            <p>Project Face Morphing &copy; 2024</p>
+        </footer>
+    </div>
+</body>
+</html>
