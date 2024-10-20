@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project 4: Image Warping and Mosaicing</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Project 4: Image Warping and Mosaicing</h1>
+        <p>This project focuses on image warping and mosaicing by creating a mosaic of two or more photographs through registration, projective warping, resampling, and compositing. The following steps were followed to achieve this:</p>
+
+        <h2>Part 1: Shooting and Digitizing Pictures</h2>
+        <p>I captured multiple images of Roaster's Coffee Pack, the outside of my house, and my desk, ensuring significant overlap between the images to facilitate mosaicing. Below are some of the original images used for this project:</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/coffee_left.jpg" alt="Outside View Left">
+                <div class="description">
+                    <strong>Left</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./data/coffee_right.jpg" alt="Outside View Right">
+                <div class="description">
+                    <strong>Right</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/outside_left.jpg" alt="Outside View Left">
+                <div class="description">
+                    <strong>Left</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./data/outside_right.jpg" alt="Outside View Right">
+                <div class="description">
+                    <strong>Right</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/room_left.jpg" alt="Outside View Left">
+                <div class="description">
+                    <strong>Left</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./data/room_right.jpg" alt="Outside View Right">
+                <div class="description">
+                    <strong>Right</strong>
+                </div>
+            </div>
+        </div>
+
+        <h2>Part 2: Recovering Homographies</h2>
+        <p>Next, I selected corresponding points between the two images. Using these points, I computed the homography matrix to warp one image onto the other. Below are the images with the corresponding points highlighted:</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/marked_coffee_left.jpg" alt="Left Image with Points">
+                <div class="description">
+                    <strong>Left Image with Corresponding Points</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/marked_coffee_right.jpg" alt="Right Image with Points">
+                <div class="description">
+                    <strong>Right Image with Corresponding Points</strong>
+                </div>
+            </div>
+        </div>
+
+        <h2>Part 3 & 4: Warping and Rectification the Images</h2>
+        <p>Using the homography matrix, I warped both images to align them.
+            Before blending, I performed rectification by transforming one of the images to ensure alignment. The images below show the warping and rectification process:</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/coffee_left.jpg" alt="Warped Left Image">
+                <div class="description">
+                    <strong>Original Left Image</strong>outside
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/warped_coffee_left.jpg" alt="Warped Right Image">
+                <div class="description">
+                    <strong>Rectified Left Image</strong>
+                </div>
+            </div>
+        </div>
+
+        <p> More examples:</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/outside_left.jpg" alt="Rectified Left Image">
+                <div class="description">
+                    <strong>Original Left Image</strong>
+                </div>
+            </div>
+            <div class="image-card">
+                <img src="./media/warped_outside_left.jpg" alt="Rectified Right Image">
+                <div class="description">
+                    <strong>Rectified Left Image</strong>
+                </div>
+            </div>
+        </div>
+
+        <h2>Part 5: Blending into a Mosaic</h2>
+        <p>Finally, I blended the images together using feathering and weighted averaging to produce the mosaic. The result is displayed below:</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/coffee_left.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Left Image</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./data/coffee_right.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Right Image</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/coffee_left_coffee_right_blended_mosaic.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Blended Image Mosaic</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/outside_left.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Left Image</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./data/outside_right.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Right Image</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/marked_outside_left.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Marked Image of Left</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/marked_outside_right.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Marked Image of Right</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/outside_left_outside_right_blended_mosaic.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Blended Image Of A Scene</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/room_left.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Left Image</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./data/room_right.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Right Image</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/marked_room_left.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Marked Image of the Left of My Room</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/marked_room_right.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Marked Image of the Right of My Room</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/room_left_room_right_blended_mosaic.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Blended Image of My Desk</strong>
+                </div>
+            </div>
+        </div>
+        <footer>
+            <p>Project 4: Image Warping and Mosaicing &copy; 2024</p>
+        </footer>
+    </div>
+
+</body>
+</html>
