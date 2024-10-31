@@ -8,10 +8,12 @@
 </head>
 <body>
     <div class="container">
-        <h1>Project 4: Image Warping and Mosaicing</h1>
+        <h1>Project 4: [Auto] Stitching Photo Mosaics</h1>
         <p>This project focuses on image warping and mosaicing by creating a mosaic of two or more photographs through registration, projective warping, resampling, and compositing. The following steps were followed to achieve this:</p>
 
-        <h2>Part 1: Shooting and Digitizing Pictures</h2>
+        <h2>Part 4A: Image Warping and Mosaicing</h2>
+
+        <h3>Part 1: Shooting and Digitizing Pictures</h3>
         <p>I captured multiple images of Roaster's Coffee Pack, the outside of my house, and my desk, ensuring significant overlap between the images to facilitate mosaicing. Below are some of the original images used for this project:</p>
         <div class="gallery">
             <div class="image-card">
@@ -58,7 +60,7 @@
             </div>
         </div>
 
-        <h2>Part 2: Recovering Homographies</h2>
+        <h3>Part 2: Recovering Homographies</h3>
         <p>Next, I selected corresponding points between the two images. Using these points, I computed the homography matrix to warp one image onto the other. Below are the images with the corresponding points highlighted:</p>
         <div class="gallery">
             <div class="image-card">
@@ -75,7 +77,7 @@
             </div>
         </div>
 
-        <h2>Part 3 & 4: Warping and Rectification the Images</h2>
+        <h3>Part 3 & 4: Warping and Rectification the Images</h3>
         <p>Using the homography matrix, I warped both images to align them.
             Before blending, I performed rectification by transforming one of the images to ensure alignment. The images below show the warping and rectification process:</p>
         <div class="gallery">
@@ -109,7 +111,7 @@
             </div>
         </div>
 
-        <h2>Part 5: Blending into a Mosaic</h2>
+        <h3>Part 5: Blending into a Mosaic</h3>
         <p>Finally, I blended the images together using feathering and weighted averaging to produce the mosaic. The result is displayed below:</p>
         <div class="gallery">
             <div class="image-card">
@@ -215,9 +217,170 @@
                 </div>
             </div>
         </div>
+        <h2>Part 4B: Feature Detection, Description, and Matching</h2>
+
+        <h3>Steps 1-3: ANMS, Feature Descriptor Extraction, and Feature Matching</h3>
+        <ol>
+            <li><strong>Step 1: Adaptive Non-Maximal Suppression (ANMS)</strong>
+                <p>
+                    To refine the Harris corners detected in each image, I implemented Adaptive Non-Maximal Suppression (ANMS) based on Section 3 of the paper “Multi-Image Matching using Multi-Scale Oriented Patches” by Brown et al. ANMS selects high-confidence features while ensuring they are spatially distributed, which is critical for effective matching.
+                    <br>The ANMS process involves:
+                    <ul>
+                        <li>Sorting corners by their Harris response strength.</li>
+                        <li>Assigning a suppression radius to each corner, representing the distance to the nearest stronger corner based on a robustness threshold (`robust_thresh=0.9`).</li>
+                        <li>Selecting the top 1000 corners with the largest radii, ensuring spatial spread across the image.</li>
+                    </ul>
+                    Below is a figure showing the ANMS-selected corners overlaid on the image.
+                </p>
+
+                <div class="image-row">
+                    <div class="image-card">
+                        <img src="./media/ladder_left_harris.jpg" alt="Harris Corners">
+                        <div class="description">Harris Corners</div>
+                    </div>
+
+                    <div class="image-card">
+                        <img src="./media/ladder_left_anms.jpg" alt="ANMS-selected Corners">
+                        <div class="description">Selected Corners after ANMS</div>
+                    </div>
+                </div>
+
+            </li>
+
+            <li><strong>Step 2: Feature Descriptor Extraction</strong>
+                <p>
+                    For each corner selected by ANMS, I extracted a feature descriptor by taking an 8x8 patch from a larger 40x40 window around each corner. This larger window allows for downsampling, which produces a blurred, stable descriptor and improves robustness.
+                    <br>The descriptors are bias/gain-normalized to have zero mean and unit variance, which makes them more resistant to lighting variations. Although rotation invariance was not included for simplicity, the 8x8 patches provide effective feature representation for matching.
+                </p>
+                <div class="image-row">
+                    <div class="image-card">
+                        <img src="./media/ladder_left_anms.jpg" alt="ANMS-selected Corners">
+                        <div class="description">Selected Corners after ANMS</div>
+                    </div>
+
+                    <div class="image-column">
+                        <div class="image-card">
+                            <img class="enlarged-image" src="./media/ladder_left_window.jpg" alt="40x40 Window">
+                            <div class="description">40x40 Window</div>
+                        </div>
+
+                        <div class="image-card">
+                            <img class="enlarged-image" src="./media/ladder_left_detector.jpg" alt="8x8 Detector for Feature Descriptor">
+                            <div class="description">8x8 Descriptor</div>
+                        </div>
+                    </div>
+                </div>
+            </li>
+
+            <li><strong>Step 3: Feature Matching using Lowe’s Ratio Test</strong>
+                <p>
+                    Using the feature descriptors from Step 2, I matched features between images by applying Lowe's ratio test. For each descriptor in the first image, I identified the two closest descriptors in the second image. A match is retained if the ratio of distances between the closest and second-closest neighbors is below 0.8. This threshold helps filter out ambiguous matches, as incorrect matches generally have closer distances to multiple descriptors.
+                    <br>This step significantly reduces mismatches, as demonstrated in the figure below showing matched features between images.
+                </p>
+                <div class="image-card-centered">
+                    <img src="./media/ladder_left_ladder_right_feature_matching.jpg" alt="Matched Features">
+                    <div class="description">Matched Features after Lowe’s Ratio Test</div>
+                </div>
+            </li>
+        </ol>
+        <h3>Step 4: Robust Homography Estimation with RANSAC</h3>
+        <p>
+            To achieve accurate alignment between images based on matched features, I implemented a 4-point RANSAC (Random Sample Consensus) algorithm to compute a robust homography estimate.
+            <br><br>
+            RANSAC iteratively selects four matched point pairs at random and computes a candidate homography matrix using these four points. This process ensures the homography estimate remains unaffected by potential outliers.
+        </p>
+        <p>
+            Using these four correspondences, I compute the homography matrix by setting up a system of linear equations based on the Direct Linear Transformation (DLT) algorithm. Given points (x, y) in the source image and corresponding points (x', y') in the destination image, we form equations to solve for the transformation matrix:
+        </p>
+        <ul>
+            <li>For each pair of corresponding points (x, y) to (x', y'), two equations are added to an equation matrix.</li>
+            <li>The system is then solved using Singular Value Decomposition (SVD), ensuring a minimal-error estimate.</li>
+        </ul>
+        <p>
+            Once the homography is computed, it’s evaluated based on the number of inliers, which are the matches where the transformed point falls within a specified distance threshold (e.g., 200 pixels). By iterating this process 1000 times, RANSAC identifies the homography matrix with the highest inlier count.
+        </p>
+        <p>
+            This final homography with the most inliers effectively aligns the images by filtering out outlier matches, which is essential for seamless mosaic creation. The figure below demonstrates inlier matches identified after RANSAC, confirming the robust alignment achieved.
+        </p>
+
+        <div class="image-card-centered">
+            <img class="small-mosaic" src="./media/ladder_left_ladder_right_ransac.jpg" alt="RANSAC Inliers">
+            <div class="description">Inliers Identified by RANSAC (69 correspondence)</div>
+        </div>
+
+        <p>Here are more examples:</p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/pcb_left.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Left side of PCB</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./data/pcb_right.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Right side of PCB</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/pcb_left_pcb_right_feature_matching.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Feature Matching the PCB</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/pcb_left_pcb_right_blended_mosaic.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Mosaic image of the PCB</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./data/stairs_left.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Left side of stairs</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./data/stairs_right.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Right side of stairs</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/stairs_left_stairs_right_feature_matching.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Feature Matching the stairs</strong>
+                </div>
+            </div>
+
+            <div class="image-card">
+                <img src="./media/stairs_left_stairs_right_blended_mosaic.jpg" alt="Blended Image Mosaic">
+                <div class="description">
+                    <strong>Mosaic stairs</strong>
+                </div>
+            </div>
+        </div>
+
+        <h3>Reflection: What I Learned</h3>
+        <p>
+            The most exciting part was implementing the Adaptive Non-Maximal Suppression and seeing how it improves feature spread, making matches more reliable. Also, Lowe’s ratio test for feature matching was a cool tool that helped isolate accurate feature correspondences.
+        </p>
         <footer>
-            <p>Project 4: Image Warping and Mosaicing &copy; 2024</p>
+            <p>Project 4: [Auto] Stitching Photo Mosaics &copy; 2024</p>
         </footer>
+
     </div>
 
 </body>

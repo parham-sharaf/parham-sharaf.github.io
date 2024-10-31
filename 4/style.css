@@ -1,3 +1,4 @@
+/* Basic Body and Typography */
 body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f9;
@@ -17,12 +18,25 @@ p {
     line-height: 1.6;
 }
 
+/* Container */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Gallery for Left-Right Image Layouts */
 .gallery {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 20px;
     padding: 20px;
+}
+
+.gallery .image-card {
+    text-align: center;
+    max-width: 300px;
 }
 
 .gallery img {
@@ -37,26 +51,45 @@ p {
     transform: scale(1.05);
 }
 
-.image-card {
-    text-align: center;
-    max-width: 300px;
-}
-
-.description {
-    margin-top: 10px;
-    font-size: 14px;
-    color: #555;
-}
-
-.container {
-    max-width: 1200px;
+/* Centered Images for Feature Matching Steps */
+.image-card-centered {
+    max-width: 80%;
     margin: 0 auto;
-    padding: 20px;
+    text-align: center;
 }
 
+/* Image-Row for Side-by-Side Alignment */
+.image-row {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.image-row .image-card {
+    max-width: 45%;
+}
+
+/* Image-Column for Stacking Two Images Vertically */
+.image-column {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.image-column .image-card {
+    max-width: 100%;
+}
+
+/* Footer */
 footer {
     text-align: center;
     margin-top: 40px;
     font-size: 14px;
     color: #aaa;
+}
+
+.small-mosaic {
+    max-width: 400px; /* Adjust this value as needed */
+    width: 100%;
+    height: auto;
 }
