@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project 5: Fun With Diffusion Models!</title>
+    <link rel="stylesheet" href="./style.css">
+    <!-- Include MathJax for LaTeX rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Project 5: Fun With Diffusion Models!</h1>
+        <p>
+            This project explores the application of diffusion models to generate and denoise images. The project is divided into two main parts:
+        </p>
+        <ul>
+            <li><strong>Part A:</strong> Playing with pre-trained diffusion models for tasks such as inpainting and optical illusions.</li>
+            <li><strong>Part B:</strong> Training your own diffusion model on the MNIST dataset.</li>
+        </ul>
+
+        <!-- Part A: Diffusion Sampling and Tasks -->
+        <div class="block">
+            <h2>Part A: Exploring Diffusion Models</h2>
+            <p>
+                In this part, you will explore the capabilities of pre-trained diffusion models, implement sampling loops, and use the models for tasks such as inpainting and generating optical illusions.
+            </p>
+
+            <!-- Subpart: 1.1 Implementing the Forward Process -->
+            <div class="block">
+                <h3>1.1 Implementing the Forward Process</h3>
+                <p>
+                    The forward diffusion process adds Gaussian noise to an image over a series of timesteps \( t \), gradually corrupting the image. Mathematically, this is defined as:
+                </p>
+                <p style="text-align: center;">
+                    \( x_t = \sqrt{\bar{\alpha}_t} \, x_0 + \sqrt{1 - \bar{\alpha}_t} \, \epsilon \),
+                </p>
+                <p>
+                    where:
+                    <ul>
+                        <li>\( x_t \): Noisy image at timestep \( t \).</li>
+                        <li>\( x_0 \): Clean original image.</li>
+                        <li>\( \bar{\alpha}_t \): Cumulative noise coefficient at \( t \).</li>
+                        <li>\( \epsilon \sim \mathcal{N}(0, I) \): Random Gaussian noise.</li>
+                    </ul>
+                </p>
+                <p>
+                    Below, we show a clean test image and its noisy counterparts at timesteps \( t = 250, 500, 750 \):
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_1_Implementing_the_Forward_Process.png" alt="Original Image">
+                        <div class="description">
+                            <strong>Figure 1: the Forward Process</strong>
+                        </div>
+                    </div>
+                </div>
+                <p>
+                    As the timestep \( t \) increases, the image becomes progressively noisier, with \( t = 750 \) being almost indistinguishable from pure noise.
+                </p>
+            </div>
+
+            <!-- Subpart: 1.2 Classical Denoising -->
+            <div class="block">
+                <h3>1.2 Classical Denoising</h3>
+                <p>
+                    In this part, we attempt to denoise the noisy images generated in the forward process (\( t = 250, 500, 750 \)) using classical Gaussian blur filtering. Gaussian blur reduces high-frequency noise by averaging nearby pixels, which is mathematically represented as:
+                </p>
+                <p style="text-align: center;">
+                    \( G(x, y) = \sum_{i=-k}^{k} \sum_{j=-k}^{k} I(x+i, y+j) \cdot w(i, j) \),
+                </p>
+                <p>
+                    where \( w(i, j) \) is the Gaussian kernel, and \( k \) is determined by the kernel size. Below, we show a comparison between the noisy images and their Gaussian-denoised counterparts for three timesteps:
+                </p>
+
+                <div class="gallery">
+                    <!-- Noisy and Denoised Pair for t=250 -->
+                    <div class="image-card">
+                        <img src="./media/1_2_Classical_Denoising.png" alt="Noisy Image (t=250)">
+                        <div class="description"><strong>Figure 2: Classical Denoising</strong></div>
+                    </div>
+                </div>
+
+                <p>
+                    <strong>Observations:</strong> While Gaussian blur effectively smooths high-frequency noise, it also removes fine details from the image. At lower noise levels (\( t = 250 \)), some recognizable features remain visible. However, at higher noise levels (\( t = 750 \)), the denoised images still resemble smoothed noise, highlighting the limitations of classical methods in denoising structured diffusion noise.
+                </p>
+            </div>
+
+            <div class="block">
+                <h3>1.3 Implementing One Step Denoising</h3>
+                <p>
+                    In this section, we use a pretrained diffusion model (DeepFloyd's stage_1.unet) to estimate and remove noise from noisy images.
+                    The process involves three steps:
+                </p>
+                <ol>
+                    <li>Estimate the noise \( \hat{\epsilon} \) in the noisy image \( x_t \).</li>
+                    <li>Remove the noise using the estimated noise and timestep-specific parameters.</li>
+                    <li>Recover an estimate of the original image \( x_0 \).</li>
+                </ol>
+                <p>
+                    The forward diffusion process adds Gaussian noise to an image, as defined by:
+                </p>
+                <p style="text-align: center;">
+                    \( x_t = \sqrt{\bar{\alpha}_t} \, x_0 + \sqrt{1 - \bar{\alpha}_t} \, \epsilon \),
+                </p>
+                <p>
+                    where:
+                    <ul>
+                        <li>\( x_t \): Noisy image at timestep \( t \).</li>
+                        <li>\( x_0 \): Clean original image.</li>
+                        <li>\( \bar{\alpha}_t \): Cumulative noise coefficient.</li>
+                        <li>\( \epsilon \): Random Gaussian noise.</li>
+                    </ul>
+                </p>
+                <p>
+                    The pretrained UNet estimates the noise \( \hat{\epsilon} \) in \( x_t \). Using this noise estimate, the original image \( x_0 \) is recovered by reversing the forward process:
+                </p>
+                <p style="text-align: center;">
+                    \( x_0 \approx \frac{x_t - \sqrt{1 - \bar{\alpha}_t} \, \hat{\epsilon}}{\sqrt{\bar{\alpha}_t}} \).
+                </p>
+                <p>
+                    Below, we visualize the original image, the noisy image at timesteps \( t = 250, 500, 750 \), and the recovered estimate \( x_0 \):
+                </p>
+
+                <div class="gallery">
+                    <!-- Visualization for t=250 -->
+                    <div class="image-card">
+                        <img src="./media/original_image_250.png" alt="Original Image (t=250)">
+                        <div class="description"><strong>Original Image</strong></div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/noisy_image_250.png" alt="Noisy Image (t=250)">
+                        <div class="description"><strong>Noisy Image (t=250)</strong></div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/denoised_image_250.png" alt="Denoised Image (t=250)">
+                        <div class="description"><strong>Recovered Image (t=250)</strong></div>
+                    </div>
+                </div>
+
+                <div class="gallery">
+                    <!-- Visualization for t=500 -->
+                    <div class="image-card">
+                        <img src="./media/1_3_One-Step_Denoising_250.png" alt="Original Image (t=500)">
+                        <div class="description"><strong>Figure 3: One-Step Denoising (noise level = 250)</strong></div>
+                    </div>
+                </div>
+                <div class="gallery">
+                    <!-- Visualization for t=500 -->
+                    <div class="image-card">
+                        <img src="./media/1_3_One-Step_Denoising_500.png" alt="Original Image (t=500)">
+                        <div class="description"><strong>Figure 4: One-Step Denoising (noise level = 5000)</strong></div>
+                    </div>
+                </div>
+                <div class="gallery">
+                    <!-- Visualization for t=500 -->
+                    <div class="image-card">
+                        <img src="./media/1_3_One-Step_Denoising_750.png" alt="Original Image (t=500)">
+                        <div class="description"><strong>Figure 5: One-Step Denoising ((noise level = 750)</strong></div>
+                    </div>
+                </div>
+
+
+                <p>
+                    <strong>Observations:</strong>
+                    <ul>
+                        <li>For \( t = 250 \), the recovered image closely resembles the original image, as the noise level is relatively low.</li>
+                        <li>For \( t = 500 \), the recovered image retains some structure but starts losing finer details.</li>
+                        <li>For \( t = 750 \), the recovered image is less accurate, as the noise overwhelms the signal.</li>
+                    </ul>
+                </p>
+            </div>
+
+            <div class="block">
+                <h3>1.4 Implementing Iterative Denoising</h3>
+                <p>
+                    In this section, we implement and evaluate an iterative denoising process using the pretrained DeepFloyd diffusion model.
+                    Iterative denoising progressively reduces noise by moving from a noisy image \( x_t \) at a timestep \( t \) to a less noisy image \( x_{t'} \),
+                    until a clean image \( x_0 \) is obtained. The timesteps \( t \) are selected from a list of <em>strided timesteps</em>,
+                    starting at \( t = 990 \) and ending at \( t = 0 \) in steps of 30.
+                </p>
+                <p>
+                    The denoising process for a single step is governed by the formula:
+                </p>
+                <p style="text-align: center;">
+                    \( x_{t'} = \frac{\sqrt{\bar{\alpha}_{t'}} \, \beta_t}{1 - \bar{\alpha}_t} \, x_0 +
+                    \frac{\sqrt{\alpha_t} \, (1 - \bar{\alpha}_{t'})}{1 - \bar{\alpha}_t} \, x_t + v_\sigma \),
+                </p>
+                <p>
+                    where:
+                    <ul>
+                        <li>\( x_{t'} \): The less noisy image at timestep \( t' \).</li>
+                        <li>\( x_0 \): Current estimate of the clean image.</li>
+                        <li>\( v_\sigma \): Variance noise, added using the provided <code>add_variance</code> function.</li>
+                    </ul>
+                </p>
+                <p>
+                    Below, we visualize the iterative denoising process, starting from \( t = 300 \) and gradually reducing noise until \( t = 0 \).
+                </p>
+
+                <!-- Noisy Images during Iterative Denoising -->
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_4_step_10.png" alt="Iterative Denoising Step 1">
+                        <div class="description"><strong>Denoising Step 10</strong></div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_4_step_15.png" alt="Iterative Denoising Step 5">
+                        <div class="description"><strong>Denoising Step 15</strong></div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_4_step_20.png" alt="Iterative Denoising Step 10">
+                        <div class="description"><strong>Denoising Step 20</strong></div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_4_step_25.png" alt="Iterative Denoising Step 10">
+                        <div class="description"><strong>Denoising Step 25</strong></div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_4_step_30.png" alt="Iterative Denoising Step 10">
+                        <div class="description"><strong>Denoising Step 30</strong></div>
+                    </div>
+                </div>
+
+                <!-- Final Images: Iterative, Single-Step, Gaussian -->
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_4_all_together.png" alt="Iterative Denoised Image">
+                        <div class="description"><strong>Final Iterative Denoised Image</strong></div>
+                    </div>
+                </div>
+
+                <p>
+                    <strong>Key Observations:</strong>
+                    <ul>
+                        <li>
+                            <strong>Iterative Denoising:</strong> The final clean image is significantly closer to the original, as noise is removed progressively at each step.
+                        </li>
+                        <li>
+                            <strong>One-Step Denoising:</strong> This method is less effective, as it attempts to denoise all at once, leading to incomplete noise removal.
+                        </li>
+                        <li>
+                            <strong>Gaussian Blurring:</strong> This classical approach smooths high-frequency noise but cannot handle structured noise, resulting in blurry images.
+                        </li>
+                    </ul>
+                </p>
+            </div>
+
+            <div class="block">
+                <h3>1.5 Diffusion Model Sampling</h3>
+                <p>
+                    In this section, we use the pretrained diffusion model to generate images from scratch. Starting with pure Gaussian noise,
+                    the model iteratively denoises the noise step-by-step until a coherent image is obtained. This process leverages the
+                    pretrained UNet's ability to map noise to the manifold of natural images, conditioned on the prompt "a high quality photo."
+                </p>
+                <p>
+                    The process begins with pure noise \( x_T \) at the noisiest timestep \( t = 990 \). Iterative denoising then progressively
+                    reduces noise using the following formula:
+                </p>
+                <p style="text-align: center;">
+                    \( x_{t'} = \frac{\sqrt{\bar{\alpha}_{t'}} \, \beta_t}{1 - \bar{\alpha}_t} \, x_0 +
+                    \frac{\sqrt{\alpha_t} \, (1 - \bar{\alpha}_{t'})}{1 - \bar{\alpha}_t} \, x_t + v_\sigma \),
+                </p>
+                <p>
+                    where:
+                    <ul>
+                        <li>\( x_{t'} \): Image at the next timestep \( t' \), closer to a clean image.</li>
+                        <li>\( x_0 \): Estimated clean image at the current step.</li>
+                        <li>\( v_\sigma \): Variance noise added during the denoising process.</li>
+                    </ul>
+                </p>
+                <p>
+                    Below, we display 5 sampled images generated by the model using this method:
+                </p>
+
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_5_generate_images.png" alt="Generated Images from Diffusion Model">
+                        <div class="description">
+                            <strong>Figure 5: 5 Generated Images Using Diffusion Model Sampling</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="block">
+                <h3>1.6 Classifier-Free Guidance (CFG)</h3>
+                <p>
+                    In this section, we use <strong>Classifier-Free Guidance (CFG)</strong> to improve the quality of generated images.
+                    CFG combines both conditional and unconditional noise estimates to guide the generation process. The noise estimate is defined as:
+                </p>
+                <p style="text-align: center;">
+                    \( \epsilon = \epsilon_u + \gamma (\epsilon_c - \epsilon_u) \),
+                </p>
+                <p>
+                    where:
+                    <ul>
+                        <li>\( \epsilon_u \): Unconditional noise estimate (null prompt).</li>
+                        <li>\( \epsilon_c \): Conditional noise estimate (prompt: "a high quality photo").</li>
+                        <li>\( \gamma \): CFG scale, controlling the strength of guidance (\( \gamma = 7 \) in this example).</li>
+                    </ul>
+                </p>
+                <p>
+                    During the iterative denoising process:
+                    <ul>
+                        <li>The UNet computes \( \epsilon_c \) by conditioning on the prompt embedding.</li>
+                        <li>It computes \( \epsilon_u \) by conditioning on a null embedding.</li>
+                        <li>Using the formula above, a guided noise estimate \( \epsilon \) is calculated.</li>
+                        <li>The image is progressively refined using the CFG-modified estimate until it converges to a visually coherent result.</li>
+                    </ul>
+                </p>
+                <p>
+                    Below are 5 images generated using CFG with a scale of \( \gamma = 7 \):
+                </p>
+
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_6_generate_images.png" alt="Generated Images with CFG">
+                        <div class="description">
+                            <strong>Figure 6: Generated Images Using Classifier-Free Guidance (CFG) with \( \gamma = 7 \)</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <p>
+                    <strong>Key Observations:</strong>
+                    <ul>
+                        <li>
+                            By amplifying the conditional signal (\( \gamma > 1 \)), CFG produces images that are more aligned with the prompt
+                            and exhibit significantly improved quality compared to earlier methods.
+                        </li>
+                        <li>
+                            The use of unconditional noise estimates (\( \epsilon_u \)) ensures a balance between diversity and fidelity in the generated outputs.
+                        </li>
+                        <li>
+                            The computational cost is higher as the UNet must compute both \( \epsilon_c \) and \( \epsilon_u \) for every timestep.
+                        </li>
+                    </ul>
+                </p>
+            </div>
+
+            <div class="block">
+                <h3>1.7 Image-to-Image Translation</h3>
+                <p>
+                    In this section, we explore the process of <strong>Image-to-Image Translation</strong>, where we take a real image,
+                    add varying levels of noise, and iteratively denoise it using the diffusion model. This technique, inspired by the
+                    <strong>SDEdit algorithm</strong>, allows the model to make edits to an image by forcing it back onto the manifold
+                    of natural images.
+                </p>
+                <p>
+                    The forward process adds noise to the image:
+                </p>
+                <p style="text-align: center;">
+                    \( x_t = \sqrt{\bar{\alpha}_t} \, x_0 + \sqrt{1 - \bar{\alpha}_t} \, \epsilon \),
+                </p>
+                <p>
+                    where:
+                    <ul>
+                        <li>\( x_t \): Noisy image at timestep \( t \).</li>
+                        <li>\( x_0 \): Clean original image.</li>
+                        <li>\( \bar{\alpha}_t \): Cumulative noise coefficient at \( t \).</li>
+                        <li>\( \epsilon \sim \mathcal{N}(0, I) \): Random Gaussian noise.</li>
+                    </ul>
+                </p>
+                <p>
+                    The noisy image \( x_t \) is then denoised iteratively using <strong>Classifier-Free Guidance (CFG)</strong>:
+                </p>
+                <p style="text-align: center;">
+                    \( \epsilon = \epsilon_u + \gamma (\epsilon_c - \epsilon_u) \),
+                </p>
+                <p>
+                    where:
+                    <ul>
+                        <li>\( \epsilon_c \): Conditional noise estimate (prompt: "a high quality photo").</li>
+                        <li>\( \epsilon_u \): Unconditional noise estimate (prompt: "").</li>
+                        <li>\( \gamma = 7 \): CFG scale, controlling the strength of guidance.</li>
+                    </ul>
+                </p>
+                <p>
+                    Below, we show the progression of edits for:
+                    <ul>
+                        <li>The original test image at noise levels \( t = [1, 3, 5, 7, 10, 20] \).</li>
+                        <li>Two custom images ("dogs" and "eskimo") using the same procedure.</li>
+                    </ul>
+                </p>
+
+                <!-- Edits for the test image -->
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_generate_images.png" alt="Edits for Test Image">
+                        <div class="description">
+                            <strong>Figure 7: Edits for Test Image ("a high quality photo") at Noise Levels \( t = [1, 3, 5, 7, 10, 20] \)</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edits for custom image 1 (dogs) -->
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_generate_images_dogs.png" alt="Edits for Dogs Image">
+                        <div class="description">
+                            <strong>Figure 8: Edits for Custom Image ("dogs") at Noise Levels \( t = [1, 3, 5, 7, 10, 20] \)</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Edits for custom image 2 (eskimo) -->
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_generate_images_eskimo.png" alt="Edits for Eskimo Image">
+                        <div class="description">
+                            <strong>Figure 9: Edits for Custom Image ("eskimo") at Noise Levels \( t = [1, 3, 5, 7, 10, 20] \)</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <p>
+                    <strong>Observations:</strong>
+                    <ul>
+                        <li>At low noise levels (e.g., \( t = 1, 3 \)), the edited image closely resembles the original image, with minimal changes.</li>
+                        <li>At higher noise levels (e.g., \( t = 10, 20 \)), the model exhibits more creativity, hallucinating additional details or changes.</li>
+                        <li>The approach demonstrates the flexibility of diffusion models for editing images based on noise levels and denoising strength.</li>
+                    </ul>
+                </p>
+            </div>
+
+            <div class="block">
+                <h3>1.7.1 Editing Hand-Drawn and Web Images</h3>
+                <p>
+                    In this section, we explore how the SDEdit algorithm can project non-realistic images, such as paintings, sketches, and web images, onto the natural image manifold.
+                    The method involves adding noise at specific levels (\( t = [1, 3, 5, 7, 10, 20] \)) and iteratively denoising the image using Classifier-Free Guidance (CFG).
+                </p>
+                <p>
+                    The forward process adds noise using:
+                </p>
+                <p style="text-align: center;">
+                    \( x_t = \sqrt{\bar{\alpha}_t} \, x_0 + \sqrt{1 - \bar{\alpha}_t} \, \epsilon \),
+                </p>
+                <p>
+                    and the CFG-adjusted noise estimate for denoising is given by:
+                </p>
+                <p style="text-align: center;">
+                    \( \epsilon = \epsilon_u + \gamma (\epsilon_c - \epsilon_u) \),
+                </p>
+                <p>
+                    where:
+                    <ul>
+                        <li>\( \epsilon_c \): Noise estimate conditioned on the text prompt.</li>
+                        <li>\( \epsilon_u \): Unconditional noise estimate (no prompt).</li>
+                        <li>\( \gamma = 7 \): CFG scale, which controls the strength of guidance.</li>
+                    </ul>
+                </p>
+
+                <!-- Web Image Results -->
+                <h4>Web Image: Minions</h4>
+                <p>
+                    The selected web image of "Minions" was processed using the SDEdit algorithm. Noise was added at timesteps
+                    \( t = [1, 3, 5, 7, 10, 20] \), and the model iteratively denoised the noisy image back to the natural image manifold.
+                    Below are the results:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_1_web_image_minions_1.png" alt="Edits for Web Image">
+                        <div class="description">
+                            <strong>Minions at i_start=1</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_web_image_minions_2.png" alt="Edits for Web Image">
+                        <div class="description">
+                            <strong>Minions at i_start=3</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_web_image_minions_3.png" alt="Edits for Web Image">
+                        <div class="description">
+                            <strong>Minions at i_start=5</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_web_image_minions_4.png" alt="Edits for Web Image">
+                        <div class="description">
+                            <strong>Minions at i_start=7</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_web_image_minions_5.png" alt="Edits for Web Image">
+                        <div class="description">
+                            <strong>Minions at i_start=10</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_web_image_minions_6.png" alt="Edits for Web Image">
+                        <div class="description">
+                            <strong>Minions at i_start=20</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hand-Drawn Image Results -->
+                <h4>Hand-Drawn Images: A Fish and Phineas</h4>
+                <p>
+                    Two hand-drawn images, "A Fish" and "Phineas," were created and processed using the same method. Noise levels \( t = [1, 3, 5, 7, 10, 20] \) were applied, and iterative denoising with CFG was used to refine the images. The results showcase how the diffusion model creatively transforms these inputs into realistic outputs while retaining artistic characteristics.
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_1_hand_drawn_image_fish_1.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Fish at i_start=1</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_hand_drawn_image_fish_2.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Fish at i_start=3</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_hand_drawn_image_fish_3.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Fish at i_start=5</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_hand_drawn_image_fish_4.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Fish at i_start=7</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_hand_drawn_image_fish_5.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Fish at i_start=10</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_hand_drawn_image_fish_6.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Fish at i_start=20</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_1_hand_drawn_image_phineas_1.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Phineas at i_start=1</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_hand_drawn_image_phineas_2.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Phineas at i_start=3</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_hand_drawn_image_phineas_3.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Phineas at i_start=5</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media//1_7_1_hand_drawn_image_phineas_4.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Phineas at i_start=7</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/1_7_1_hand_drawn_image_phineas_5.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Phineas at i_start=10</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media//1_7_1_hand_drawn_image_phineas_6.png" alt="Edits for Hand-Drawn Fish">
+                        <div class="description">
+                            <strong>Phineas at i_start=20</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <p>
+                    <strong>Observations:</strong>
+                    <ul>
+                        <li>The "Minions" web image was effectively refined, retaining its overall structure while aligning with the "a high quality photo" prompt.</li>
+                        <li>The hand-drawn images, "A Fish" and "Phineas," were creatively projected onto the natural image manifold, showcasing the model's ability to refine and enhance non-realistic inputs.</li>
+                    </ul>
+                </p>
+            </div>
+
+            <div class="block">
+                <h3>1.7.2 Inpainting</h3>
+                <p>
+                    In this section, we explore the capability of diffusion models for inpainting. Inpainting involves editing specific parts of an image while preserving other regions. Using a binary mask \( m \), where \( m = 1 \) represents the areas to edit and \( m = 0 \) represents areas to preserve, the model refines the noisy regions back to the natural image manifold.
+                </p>
+                <p>
+                    The inpainting process follows the formula:
+                </p>
+                <p style="text-align: center;">
+                    \( x_t \leftarrow m x_t + (1 - m) \text{forward}(x_{\text{orig}}, t) \)
+                </p>
+                <p>
+                    This ensures that pixels outside the mask retain their original values with appropriate noise, while pixels inside the mask are denoised iteratively. The model progressively refines the image using the iterative denoising process.
+                </p>
+
+                <!-- Subsection: Test Image Inpainting -->
+                <h4>Test Image: Inpainting with a Rectangular Mask</h4>
+                <p>
+                    Below, we demonstrate inpainting on the test image with a rectangular mask that targets the top half of the image. The mask ensures that only the top portion is edited while the rest remains unchanged:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_2_test_image.png" alt="Original Test Image">
+                        <div class="description"><strong>In painted Campanile</strong></div>
+                    </div>
+
+                <!-- Subsection: Piano Image -->
+                <h4>Custom Image 1: Piano (Rectangular Mask)</h4>
+                <p>
+                    For the piano image, we applied a rectangular mask that spans the middle section of the image. This mask allows the model to focus its edits on that region, leaving the rest of the image untouched:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_2_Inpainting_piano.png" alt="Original Piano Image">
+                        <div class="description"><strong>In painted Piano</strong></div>
+                    </div>
+                </div>
+
+                <!-- Subsection: Rolex Image -->
+                <h4>Custom Image 2: Rolex (Circular Mask)</h4>
+                <p>
+                    For the Rolex image, we used a circular mask centered in the middle of the image. The circular mask allows the model to refine the specific region within the circle, while preserving the outer area as is:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_2_Inpainting_rolex.png" alt="Original Rolex Image">
+                        <div class="description"><strong>In painted Rolex</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="block">
+                <h3>1.7.3 Text-Conditioned Image-to-Image Translation</h3>
+                <p>
+                    In this section, we use text-conditioned embeddings to guide the image projection process onto the natural image manifold. By changing the prompt from "a high quality photo" to a specific text description, we add control using language. For instance, we used the prompt "a rocket ship" to guide the denoising process.
+                </p>
+                <p>
+                    The iterative denoising process is guided by the classifier-free guidance (CFG) scale \( \gamma \), which was set to \( \gamma = 7 \). This process was applied to the test image and two custom images, namely an orchestra and an F1 race.
+                </p>
+
+                <h4>Edits of the Test Image</h4>
+                <p>The following results show the test image progressively edited at noise levels [1, 3, 5, 7, 10, 20]:</p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_3_campanile.png" alt="Text Conditioned Translation on Test Image">
+                        <div class="description">
+                            <strong>Figure 1: Text-Conditioned Translation with Prompt: "a rocket ship"</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h4>Edits of Custom Image 1: Orchestra</h4>
+                <p>Below are the results of applying the same procedure on the orchestra image:</p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_3_orchestra.png" alt="Orchestra Text Conditioned Translation">
+                        <div class="description">
+                            <strong>Figure 2: Text-Conditioned Translation of Orchestra Image with Prompt: "a rocket ship"</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h4>Edits of Custom Image 2: F1 Race</h4>
+                <p>Finally, we applied the text-conditioned translation to an image of an F1 race:</p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_7_3_f1race.png" alt="F1 Race Text Conditioned Translation">
+                        <div class="description">
+                            <strong>Figure 3: Text-Conditioned Translation of F1 Race with Prompt: "a rocket ship"</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="block">
+                <h2>Part 1.8: Visual Anagrams</h2>
+                <p>
+                    In this section, we implemented visual anagrams using a diffusion model. A visual anagram is an image that appears as one subject when upright and as another subject when flipped upside down. This effect was achieved by conditioning the denoising process on two different text prompts and averaging the noise estimates from both orientations during iterative denoising.
+                </p>
+                <p>
+                    Mathematically, the algorithm for noise estimation is:
+                </p>
+                <p style="text-align: center;">
+                    \( \epsilon_1 = \text{UNet}(x_t, t, p_1) \), \( \epsilon_2 = \text{flip}(\text{UNet}(\text{flip}(x_t), t, p_2)) \),
+                </p>
+                <p style="text-align: center;">
+                    \( \epsilon = \frac{\epsilon_1 + \epsilon_2}{2} \),
+                </p>
+                <p>
+                    where \( p_1 \) and \( p_2 \) are the text prompt embeddings, and \( \text{flip}(\cdot) \) represents vertical flipping. The final denoising process uses this averaged noise estimate to iteratively refine the image.
+                </p>
+
+                <h3>Deliverables</h3>
+
+                <h4>1. Visual Anagram: "Campfire" and "Old Man"</h4>
+                <p>
+                    This visual anagram appears as "an oil painting of people around a campfire" when upright and "an oil painting of an old man" when flipped upside down:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_8_oldman_flipped.png" alt="Upright: Campfire">
+                        <div class="description">
+                            <strong>old man and campfire</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h4>2. Visual Anagram: "Hipster Barista" and "Man"</h4>
+                <p>
+                    This visual anagram appears as "a photo of a hipster barista" when upright and "a photo of a man" when flipped upside down:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_8_hipster_man.png" alt="Upright: Hipster Barista">
+                        <div class="description">
+                            <strong>Hipster Barista and a Photo of a man</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h4>3. Visual Anagram: "Waterfalls" and "Skull"</h4>
+                <p>
+                    This visual anagram appears as "a lithograph of waterfalls" when upright and "a lithograph of a skull" when flipped upside down:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/1_8_skull_waterfall.png" alt="Upright: Waterfalls">
+                        <div class="description">
+                            <strong>Skull and waterfall</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Explanation</h3>
+                <p>
+                    To create these illusions, the following steps were performed:
+                    <ol>
+                        <li>Initialize a random noise image \( x_t \) at timestep \( t=1000 \).</li>
+                        <li>Iteratively denoise the image using the text prompt for the upright orientation while simultaneously flipping the image vertically and denoising with the flipped prompt.</li>
+                        <li>Averaged the noise estimates from both orientations and used the result to guide the next denoising step.</li>
+                        <li>Displayed the final upright and flipped images to demonstrate the illusion.</li>
+                    </ol>
+                </p>
+            </div>
+
+            <div class="block">
+                <h2>Part A: Exploring Diffusion Models</h2>
+                <h3>1.9 Hybrid Images</h3>
+                <p>
+                    In this section, we created hybrid images that appear as one image from far away (low frequency)
+                    and a different image up close (high frequency). The results leverage Gaussian blur to isolate
+                    low-frequency components and combine them with the high-frequency details of another prompt.
+                </p>
+                <p>
+                    The hybrid image creation process involves iterative denoising guided by two separate text prompts
+                    for the far and close views, blending their frequency components to create a visually striking
+                    effect. The formula used for combining the images is:
+                </p>
+                <p style="text-align: center;">
+                    \( \text{Hybrid Image} = \text{Low Frequency Image} + (\text{High Frequency Image} - \text{Blurred High Frequency Image}) \)
+                </p>
+                <p>
+                    Below are the results for three hybrid images:
+                </p>
+                <div class="gallery">
+                    <!-- Hybrid 1 -->
+                    <div class="image-card">
+                        <img src="./media/1_9_waterfall_skull.jpg" alt="Hybrid Image: Skull (Far) and Waterfall (Close)">
+                        <div class="description">
+                            <strong>Figure 1: Skull (Far) & Waterfall (Close)</strong>
+                        </div>
+                    </div>
+                    <!-- Hybrid 2 -->
+                    <div class="image-card">
+                        <img src="./media/1_9_dog_rocketship.jpg" alt="Hybrid Image: Dog (Far) and Rocket Ship (Close)">
+                        <div class="description">
+                            <strong>Figure 2: Dog (Far) & Rocket Ship (Close)</strong>
+                        </div>
+                    </div>
+                    <!-- Hybrid 3 -->
+                    <div class="image-card">
+                        <img src="./media/hybrid_hat_hipster.png" alt="Hybrid Image: Hat (Far) and Hipster Barista (Close)">
+                        <div class="description">
+                            <strong>Figure 3: Hat (Far) & Hipster Barista (Close)</strong>
+                        </div>
+                    </div>
+                </div>
+                <h4>How it Works</h4>
+                <p>
+                    To create these images:
+                    <ol>
+                        <li>
+                            We started with pure noise and denoised it iteratively using a combination of low-frequency
+                            and high-frequency components guided by separate text prompts.
+                        </li>
+                        <li>
+                            Gaussian blur was applied to isolate the low-frequency components for the far view.
+                        </li>
+                        <li>
+                            High-frequency components were preserved by subtracting the blurred high-frequency image
+                            from the original high-frequency image.
+                        </li>
+                        <li>
+                            The two frequency components were combined to create the final hybrid image.
+                        </li>
+                    </ol>
+                </p>
+                <h4>Observations</h4>
+                <p>
+                    Each hybrid image effectively combines the visual properties of two different prompts. From far away,
+                    the low-frequency image dominates, creating the appearance of the first prompt. As you get closer,
+                    the high-frequency details become visible, revealing the second prompt.
+                </p>
+            </div>
+
+
+
+
+
+
+
+        </div>
+
+
+       <!-- Part B: Training a Diffusion Model -->
+        <div class="block">
+            <h2>Part B: Training Your Own Diffusion Model</h2>
+            <p>
+                In this part, we train a UNet-based diffusion model on the MNIST dataset. The process involves generating noisy images, training the model to denoise them, and evaluating the model’s performance.
+            </p>
+
+            <!-- Subpart: 1.1 Implementing the UNet -->
+             <div class="block">
+                <h2>Part 1: Visualization of the Noising Process</h2>
+                <p>
+                    To train the UNet denoiser, we generate noisy images \( z \) by adding Gaussian noise to clean MNIST images \( x \), as follows:
+                </p>
+                <p style="text-align: center;">
+                    <code>z = x + &sigma; * &epsilon;</code>, where <code>&epsilon; &sim; N(0, I)</code>.
+                </p>
+                <p>
+                    Below is a visualization of the noising process, showing how images are progressively corrupted as the noise level \( \sigma \) increases:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/2_2_1_2_using_the_unet_to_train_a_denoiser.png" alt="Noising Process Visualization">
+                        <div class="description">
+                            <strong>Figure 3: Noising Process with \( \sigma = [0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0] \)</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="block">
+                <h2>Part 2: Training Loss Curve</h2>
+                <p>
+                    The UNet denoiser was trained to minimize the L2 loss:
+                </p>
+                <p style="text-align: center;">
+                    \( L = \mathbb{E}_{z,x} [\| D_\theta(z) - x \|^2] \)
+                </p>
+                <p>
+                    Training was conducted over 5 epochs, with random noise levels applied to the images during each batch. The following plot shows the training loss over steps:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/2_1_2_1_training_loss_steps.png" alt="Training Loss Curve">
+                        <div class="description">
+                            <strong>Figure 4: Training Loss Curve</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="block">
+                <h2>Part 3: Sample Results on the Test Set</h2>
+                <p>
+                    After training, the denoiser was tested on unseen MNIST digits. Below are the results of the denoiser:
+                </p>
+                <ul>
+                    <li><strong>After the 1st Epoch:</strong> Early-stage denoising results.</li>
+                    <li><strong>After the 5th Epoch:</strong> Final denoising performance.</li>
+                </ul>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/2_1_2_1_Training_epoch_1.png" alt="Test Results After 1st Epoch">
+                        <div class="description">
+                            <strong>Figure 5: Test Results After 1st Epoch</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/2_1_2_1_Training_epoch_5.png" alt="Test Results After 5th Epoch">
+                        <div class="description">
+                            <strong>Figure 6: Test Results After 5th Epoch</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="block">
+                <h2>Part 4: Out-of-Distribution Testing</h2>
+                <p>
+                    To evaluate the model's generalization, the denoiser was tested on noise levels it was not trained for, ranging from \( \sigma = [0.0, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0] \). The results below show how the model performs as the noise level increases:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/2_1_2_2_Out-of-Distribution_Testing.png" alt="Out-of-Distribution Testing">
+                        <div class="description">
+                            <strong>Figure 7: Out-of-Distribution Testing Results</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="block">
+                <h2>Part 2: Training a Time-Conditioned UNet</h2>
+
+                <h3>Training Loss Curve</h3>
+                <p>
+                    To train the time-conditioned UNet \( \epsilon_\theta(x_t, t) \), we minimize the L2 loss:
+                </p>
+                <p style="text-align: center;">
+                    \( L = \mathbb{E}_{x_0, t, \epsilon} \| \epsilon_\theta(x_t, t) - \epsilon \|^2 \)
+                </p>
+                <p>
+                    Here:
+                    <ul>
+                        <li>\( x_0 \): Clean image from the training set.</li>
+                        <li>\( t \): Random timestep sampled from \( \{1, \dots, T\} \).</li>
+                        <li>\( \epsilon \sim \mathcal{N}(0, I) \): Gaussian noise added to the image.</li>
+                    </ul>
+                    The loss curve below shows the training progress over 20 epochs. The model converges steadily as it learns to predict the added noise at various timesteps.
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/2_2_2_Time-Conditioned_UNet_training_loss_curve.png" alt="Training Loss Curve">
+                        <div class="description">
+                            <strong>Figure 10: Training Loss Curve for the Time-Conditioned UNet</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Sampling Results</h3>
+                <p>
+                    Using the trained UNet, we generate images by iteratively denoising a pure noise image \( x_T \sim \mathcal{N}(0, I) \) through the reverse diffusion process. The equations for denoising are as follows:
+                </p>
+                <p style="text-align: center;">
+                    \( x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1 - \bar{\alpha}_t} \epsilon \)
+                </p>
+                <p>
+                    At each timestep \( t \), the UNet predicts the noise \( \epsilon_\theta(x_t, t) \), which is used to compute the denoised image \( x_0 \):
+                </p>
+                <p style="text-align: center;">
+                    \( x_0 = \frac{1}{\sqrt{\bar{\alpha}_t}} \left( x_t - \sqrt{1 - \bar{\alpha}_t} \epsilon_\theta(x_t, t) \right) \)
+                </p>
+                <p>
+                    Then, the next timestep \( x_{t-1} \) is computed as:
+                </p>
+                <p style="text-align: center;">
+                    \( x_{t-1} = \frac{\sqrt{\bar{\alpha}_{t-1}}}{\sqrt{1 - \bar{\alpha}_t}} x_0 + \frac{\sqrt{\alpha_t} (1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t} x_t + \sqrt{\beta_t} z \)
+                </p>
+
+
+                <p>
+                    Here:
+                    <ul>
+                        <li>\( z \sim \mathcal{N}(0, I) \) is Gaussian noise for \( t > 1 \), or \( z = 0 \) if \( t = 1 \).</li>
+                        <li>\( \bar{\alpha}_t \): Cumulative product of \( \alpha_t = 1 - \beta_t \).</li>
+                    </ul>
+                </p>
+                <p>
+                    Below are the generated images after 5 and 20 epochs of training. These results demonstrate the improvement in the UNet's ability to generate clean samples as training progresses.
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/2_2_3_Sampling_from_the_UNet_epoch_5.png" alt="Sampling Results After 5 Epochs">
+                        <div class="description">
+                            <strong>Figure 11: Sampling Results After 5 Epochs</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/2_2_3_Sampling_from_the_UNet_epoch_20.png" alt="Sampling Results After 20 Epochs">
+                        <div class="description">
+                            <strong>Figure 12: Sampling Results After 20 Epochs</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="block">
+                <h2>Part 6: Class-Conditioned UNet Training and Sampling</h2>
+
+                <h3>Training Overview</h3>
+                <p>
+                    In this section, we extend the UNet to be class-conditioned, allowing it to generate MNIST digits conditioned on their class (digits 0-9).
+                    This involves introducing class-conditioning vectors alongside time-conditioning. The model is trained using a combination of the class and
+                    time signals, with dropout applied to class-conditioning 10% of the time to enable unconditional generation.
+                </p>
+                <p>
+                    The class-conditioned UNet minimizes the noise prediction loss:
+                </p>
+                <p style="text-align: center;">
+                    \( L = \mathbb{E}_{x_0, t, c, \epsilon} \| \epsilon - \epsilon_\theta(x_t, t, c) \|^2 \)
+                </p>
+                <p>
+                    where \( x_t \) is generated as:
+                </p>
+                <p style="text-align: center;">
+                    \( x_t = \sqrt{\bar{\alpha}_t} x_0 + \sqrt{1 - \bar{\alpha}_t} \epsilon \)
+                </p>
+                <p>
+                    Training details:
+                    <ul>
+                        <li>Batch size: 128</li>
+                        <li>Learning rate: 1e-3</li>
+                        <li>Epochs: 20</li>
+                        <li>Unconditioning probability (\( p_{\text{uncond}} \)): 0.1</li>
+                        <li>Guidance scale (\( \gamma \)): 5.0</li>
+                    </ul>
+                </p>
+                <p>
+                    Below is the training loss curve, showing convergence over the course of training:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/2_2_4_Class-conditioned%20UNet%20training%20loss%20curve.png" alt="Training Loss Curve">
+                        <div class="description">
+                            <strong>Figure 13: Training Loss Curve for the Class-Conditioned UNet</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Sampling Overview</h3>
+                <p>
+                    During sampling, we use classifier-free guidance to enhance the quality of class-conditioned results. The guided noise prediction is computed as:
+                </p>
+                <p style="text-align: center;">
+                    \( \epsilon = \epsilon_u + \gamma (\epsilon_c - \epsilon_u) \)
+                </p>
+                <p>
+                    where:
+                    <ul>
+                        <li>\( \epsilon_u = \epsilon_\theta(x_t, t, 0) \) is the unconditional noise prediction.</li>
+                        <li>\( \epsilon_c = \epsilon_\theta(x_t, t, c) \) is the class-conditioned noise prediction.</li>
+                        <li>\( \gamma = 5.0 \) is the guidance scale.</li>
+                    </ul>
+                </p>
+                <p>
+                    The denoising process then follows the reverse diffusion formula:
+                </p>
+                <p style="text-align: center;">
+                    \( x_0 = \frac{1}{\sqrt{\bar{\alpha}_t}} \left( x_t - \sqrt{1 - \bar{\alpha}_t} \epsilon \right) \)
+                </p>
+                <p style="text-align: center;">
+                    \( x_{t-1} = \frac{\sqrt{\bar{\alpha}_{t-1}} \hat{x}_0}{1 - \bar{\alpha}_{t-1}} + \sqrt{\beta_t} z + \frac{\sqrt{\alpha_t} (1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t} x_t \)
+                </p>
+                <p>
+                    Sampling results for 4 instances of each digit (0-9) after 5 and 20 epochs of training are shown below:
+                </p>
+                <div class="gallery">
+                    <div class="image-card">
+                        <img src="./media/2_2_5_Sampling_from_the_Class-Conditioned_UNet_epoch_5.png" alt="Samples After 5 Epochs">
+                        <div class="description">
+                            <strong>Figure 14: Class-Conditioned Samples After 5 Epochs</strong>
+                        </div>
+                    </div>
+                    <div class="image-card">
+                        <img src="./media/2_2_5_Sampling_from_the_Class-Conditioned_UNet_epoch_20.png" alt="Samples After 20 Epochs">
+                        <div class="description">
+                            <strong>Figure 15: Class-Conditioned Samples After 20 Epochs</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Observations</h3>
+                <p>
+                    The training loss curve indicates steady convergence over 20 epochs, suggesting that the UNet learns to predict noise effectively for both class-conditioned
+                    and unconditional generation. Sampling results show the improvement in generation quality and diversity after 20 epochs compared to 5 epochs.
+                </p>
+                <p>
+                    Classifier-free guidance significantly enhances the quality of the generated images by leveraging both unconditional and class-conditioned predictions.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
