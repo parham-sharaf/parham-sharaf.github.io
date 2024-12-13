@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural Radiance Field Project - Part 1</title>
+    <link rel="stylesheet" href="./style.css">
+    <!-- MathJax for LaTeX rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Project Title -->
+        <h1>Neural Radiance Field Project</h1>
+
+        <!-- Part Title -->
+        <h2 class="part-title">Part 1: Fitting a Neural Field to a 2D Image</h2>
+
+        <!-- Section 1: Introduction -->
+        <div class="block">
+            <h3>Introduction</h3>
+            <p>
+                In this part of the <strong>Neural Radiance Field</strong> project, we create a neural field that maps 2D image coordinates to RGB values using a Multi-Layer Perceptron (MLP) and Sinusoidal Positional Encoding (PE). The model is trained to reconstruct an image by optimizing the network's parameters.
+            </p>
+        </div>
+        <!-- Section 2: Model Architecture -->
+        <div class="block">
+            <h3>Model Architecture</h3>
+            <p>
+                The model used in this project is a Multi-Layer Perceptron (MLP) with the following configuration:
+            </p>
+
+            <ul>
+                <li><strong>Input Features:</strong> 2D coordinates with positional encoding (\(x, y\))</li>
+                <li><strong>Hidden Layers:</strong> 4 layers with 256 hidden units each</li>
+                <li><strong>Activation Function:</strong> ReLU for hidden layers</li>
+                <li><strong>Output Layer:</strong> Sigmoid function to constrain output RGB values to \([0, 1]\)</li>
+                <li><strong>Positional Encoding \(L\):</strong> 10</li>
+                <li><strong>Learning Rate:</strong> 0.01</li>
+            </ul>
+
+            <p>
+                The following diagram illustrates the architecture of the neural network:
+            </p>
+
+            <div class="image-card">
+                <img src="./media/model_architecture.jpg" alt="MLP Architecture">
+                <div class="description"><strong>Figure 1: MLP Architecture with Positional Encoding</strong></div>
+            </div>
+
+            <p>
+                During training, we track the Peak Signal-to-Noise Ratio (PSNR) to measure the quality of the reconstruction. The plot below shows the PSNR across training iterations:
+            </p>
+
+            <div class="image-card">
+                <img src="./media/fox_hyperparameter_tuning/fox_0_lr0.01_L10_Layers4_PSNR_Curve.png" alt="PSNR Curve">
+                <div class="description"><strong>Figure 2: PSNR Curve Over Iterations</strong></div>
+            </div>
+        </div>
+
+        <!-- Section 3: Training Process -->
+        <div class="block">
+            <h3>Training Process</h3>
+            <p>
+                The model is trained using Mean Squared Error (MSE) loss with the Adam optimizer. The training process involves randomly sampling pixels (batch size of 10,000) and optimizing the network to predict their RGB values.
+            </p>
+            <p>
+                The training was run for a total of 3,000 iterations. Below are the predicted images at different stages of training for two different input images, illustrating how the model gradually learns to reconstruct each image:
+            </p>
+
+            <!-- Training Process for Fox Image -->
+            <h4>Image 1: Fox</h4>
+            <div class="gallery">
+                <!-- Iteration 100 -->
+                <div class="image-card">
+                    <img src="./media/fox_hyperparameter_tuning/fox_0_lr_0.001_Layers_10_num_layers_4/100.png" alt="Fox - Iteration 100">
+                    <div class="description"><strong>Iteration 100</strong></div>
+                </div>
+
+                <!-- Iteration 300 -->
+                <div class="image-card">
+                    <img src="./media/fox_hyperparameter_tuning/fox_0_lr_0.001_Layers_10_num_layers_4/300.png" alt="Fox - Iteration 300">
+                    <div class="description"><strong>Iteration 300</strong></div>
+                </div>
+
+                <!-- Iteration 500 -->
+                <div class="image-card">
+                    <img src="./media/fox_hyperparameter_tuning/fox_0_lr_0.001_Layers_10_num_layers_4/500.png" alt="Fox - Iteration 500">
+                    <div class="description"><strong>Iteration 500</strong></div>
+                </div>
+
+                <!-- Iteration 1000 -->
+                <div class="image-card">
+                    <img src="./media/fox_hyperparameter_tuning/fox_0_lr_0.001_Layers_10_num_layers_4/1000.png" alt="Fox - Iteration 1000">
+                    <div class="description"><strong>Iteration 1000</strong></div>
+                </div>
+
+                <!-- Iteration 2000 -->
+                <div class="image-card">
+                    <img src="./media/fox_hyperparameter_tuning/fox_0_lr_0.001_Layers_10_num_layers_4/2000.png" alt="Fox - Iteration 2000">
+                    <div class="description"><strong>Iteration 2000</strong></div>
+                </div>
+
+                <!-- Iteration 3000 -->
+                <div class="image-card">
+                    <img src="./media/fox_hyperparameter_tuning/fox_0_lr_0.001_Layers_10_num_layers_4/3000.png" alt="Fox - Iteration 3000">
+                    <div class="description"><strong>Iteration 3000</strong></div>
+                </div>
+            </div>
+
+            <!-- Training Process for Second Image -->
+            <h4>Image 2: Parrot</h4>
+            <div class="gallery">
+                <!-- Iteration 100 -->
+                <div class="image-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/100.png" alt="Parrot - Iteration 100">
+                    <div class="description"><strong>Iteration 100</strong></div>
+                </div>
+
+                <!-- Iteration 300 -->
+                <div class="image-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/300.png" alt="Parrot - Iteration 300">
+                    <div class="description"><strong>Iteration 300</strong></div>
+                </div>
+
+                <!-- Iteration 500 -->
+                <div class="image-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/500.png" alt="Parrot - Iteration 500">
+                    <div class="description"><strong>Iteration 500</strong></div>
+                </div>
+
+                <!-- Iteration 1000 -->
+                <div class="image-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/1000.png" alt="Parrot - Iteration 1000">
+                    <div class="description"><strong>Iteration 1000</strong></div>
+                </div>
+
+                <!-- Iteration 2000 -->
+                <div class="image-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/2000.png" alt="Parrot - Iteration 2000">
+                    <div class="description"><strong>Iteration 2000</strong></div>
+                </div>
+
+                <!-- Iteration 3000 -->
+                <div class="image-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/3000.png" alt="Parrot - Iteration 3000">
+                    <div class="description"><strong>Iteration 3000</strong></div>
+                </div>
+            </div>
+
+            <p>
+                As shown in the images above, the network's predictions become progressively more accurate for both images, capturing finer details as training continues.
+            </p>
+        </div>
+
+
+
+        <!-- Section 5: Hyperparameter Experiments -->
+        <div class="block">
+            <h3>Hyperparameter Experiments</h3>
+            <p>
+                We experimented with different hyperparameters such as the number of layers, and positional encoding frequency \(L\). The following results show how these variations impact the model's performance. For each configuration, we display the predicted images at iterations 100, 1000, and 3000, along with the PSNR curve.
+            </p>
+
+            <!-- Configuration 1 -->
+            <h4>Configuration 1: Varying \(L\) Values (\(L = 5, 10, 15\)), 4 Layers, Learning Rate = 1e-2</h4>
+            <div class="config-gallery">
+                <div class="grid-images">
+                    <!-- Top-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_5_num_layers_4/100.png" alt="Config 1 - Iteration 100">
+                        <div class="description"><strong>Iteration 100</strong></div>
+                    </div>
+
+                    <!-- Top-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_5_num_layers_4/300.png" alt="Config 1 - Iteration 300">
+                        <div class="description"><strong>Iteration 300</strong></div>
+                    </div>
+
+                    <!-- Bottom-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_5_num_layers_4/1000.png" alt="Config 1 - Iteration 1000">
+                        <div class="description"><strong>Iteration 1000</strong></div>
+                    </div>
+
+                    <!-- Bottom-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_5_num_layers_4/3000.png" alt="Config 1 - Iteration 3000">
+                        <div class="description"><strong>Iteration 3000</strong></div>
+                    </div>
+                </div>
+
+                <!-- PSNR Curve Image -->
+                <div class="psnr-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr0.01_L5_Layers4_PSNR_Curve.png" alt="Config 1 - PSNR Curve">
+                    <div class="description"><strong>PSNR Curve</strong></div>
+                </div>
+            </div>
+
+            <div class="config-gallery">
+                <div class="grid-images">
+                    <!-- Top-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/100.png" alt="Config 1 - Iteration 100">
+                        <div class="description"><strong>Iteration 100</strong></div>
+                    </div>
+
+                    <!-- Top-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/300.png" alt="Config 1 - Iteration 300">
+                        <div class="description"><strong>Iteration 300</strong></div>
+                    </div>
+
+                    <!-- Bottom-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/1000.png" alt="Config 1 - Iteration 1000">
+                        <div class="description"><strong>Iteration 1000</strong></div>
+                    </div>
+
+                    <!-- Bottom-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/3000.png" alt="Config 1 - Iteration 3000">
+                        <div class="description"><strong>Iteration 3000</strong></div>
+                    </div>
+                </div>
+
+                <!-- PSNR Curve Image -->
+                <div class="psnr-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr0.01_L10_Layers4_PSNR_Curve.png" alt="Config 1 - PSNR Curve">
+                    <div class="description"><strong>PSNR Curve</strong></div>
+                </div>
+            </div>
+
+            <div class="config-gallery">
+                <div class="grid-images">
+                    <!-- Top-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_15_num_layers_4/100.png" alt="Config 1 - Iteration 100">
+                        <div class="description"><strong>Iteration 100</strong></div>
+                    </div>
+
+                    <!-- Top-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_15_num_layers_4/300.png" alt="Config 1 - Iteration 300">
+                        <div class="description"><strong>Iteration 300</strong></div>
+                    </div>
+
+                    <!-- Bottom-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_15_num_layers_4/1000.png" alt="Config 1 - Iteration 1000">
+                        <div class="description"><strong>Iteration 1000</strong></div>
+                    </div>
+
+                    <!-- Bottom-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_15_num_layers_4/3000.png" alt="Config 1 - Iteration 3000">
+                        <div class="description"><strong>Iteration 3000</strong></div>
+                    </div>
+                </div>
+
+                <!-- PSNR Curve Image -->
+                <div class="psnr-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr0.01_L15_Layers4_PSNR_Curve.png" alt="Config 1 - PSNR Curve">
+                    <div class="description"><strong>PSNR Curve</strong></div>
+                </div>
+            </div>
+
+            <!-- Configuration 2 -->
+            <h4>Configuration 2: Varying learning rate. (\(L = 10\)), 4 Layers, Learning Rate = 1e-2, 1e-3, 4e-3</h4>
+            <div class="config-gallery">
+                <div class="grid-images">
+                    <!-- Top-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/100.png" alt="Config 1 - Iteration 100">
+                        <div class="description"><strong>Iteration 100</strong></div>
+                    </div>
+
+                    <!-- Top-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/300.png" alt="Config 1 - Iteration 300">
+                        <div class="description"><strong>Iteration 300</strong></div>
+                    </div>
+
+                    <!-- Bottom-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/1000.png" alt="Config 1 - Iteration 1000">
+                        <div class="description"><strong>Iteration 1000</strong></div>
+                    </div>
+
+                    <!-- Bottom-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.01_Layers_10_num_layers_4/3000.png" alt="Config 1 - Iteration 3000">
+                        <div class="description"><strong>Iteration 3000</strong></div>
+                    </div>
+                </div>
+
+                <!-- PSNR Curve Image -->
+                <div class="psnr-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr0.01_L10_Layers4_PSNR_Curve.png" alt="Config 1 - PSNR Curve">
+                    <div class="description"><strong>PSNR Curve</strong></div>
+                </div>
+            </div>
+
+            <div class="config-gallery">
+                <div class="grid-images">
+                    <!-- Top-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.001_Layers_10_num_layers_4/100.png" alt="Config 1 - Iteration 100">
+                        <div class="description"><strong>Iteration 100</strong></div>
+                    </div>
+
+                    <!-- Top-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.001_Layers_10_num_layers_4/300.png" alt="Config 1 - Iteration 300">
+                        <div class="description"><strong>Iteration 300</strong></div>
+                    </div>
+
+                    <!-- Bottom-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.001_Layers_10_num_layers_4/1000.png" alt="Config 1 - Iteration 1000">
+                        <div class="description"><strong>Iteration 1000</strong></div>
+                    </div>
+
+                    <!-- Bottom-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.001_Layers_10_num_layers_4/3000.png" alt="Config 1 - Iteration 3000">
+                        <div class="description"><strong>Iteration 3000</strong></div>
+                    </div>
+                </div>
+
+                <!-- PSNR Curve Image -->
+                <div class="psnr-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr0.001_L10_Layers4_PSNR_Curve.png" alt="Config 1 - PSNR Curve">
+                    <div class="description"><strong>PSNR Curve</strong></div>
+                </div>
+            </div>
+
+            <div class="config-gallery">
+                <div class="grid-images">
+                    <!-- Top-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.004_Layers_10_num_layers_4/100.png" alt="Config 1 - Iteration 100">
+                        <div class="description"><strong>Iteration 100</strong></div>
+                    </div>
+
+                    <!-- Top-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.004_Layers_10_num_layers_4/300.png" alt="Config 1 - Iteration 300">
+                        <div class="description"><strong>Iteration 300</strong></div>
+                    </div>
+
+                    <!-- Bottom-Left Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.004_Layers_10_num_layers_4/1000.png" alt="Config 1 - Iteration 1000">
+                        <div class="description"><strong>Iteration 1000</strong></div>
+                    </div>
+
+                    <!-- Bottom-Right Image -->
+                    <div class="image-card">
+                        <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr_0.004_Layers_10_num_layers_4/3000.png" alt="Config 1 - Iteration 3000">
+                        <div class="description"><strong>Iteration 3000</strong></div>
+                    </div>
+                </div>
+
+                <!-- PSNR Curve Image -->
+                <div class="psnr-card">
+                    <img src="./media/parrot_hyperparameter_tuning/parrot_1_lr0.004_L10_Layers4_PSNR_Curve.png" alt="Config 1 - PSNR Curve">
+                    <div class="description"><strong>PSNR Curve</strong></div>
+                </div>
+            </div>
+        </div>
+   </div>
+    <div class="container">
+        <h1>Part 2: Fit a Neural Radiance Field from Multi-view Images</h1>
+
+        <!-- Section 2.1: Create Rays from Cameras -->
+        <div class="block">
+            <h2>2.1: Create Rays from Cameras</h2>
+
+            <!-- Camera to World Coordinate Conversion -->
+            <h3>Camera to World Coordinate Conversion</h3>
+            <p>
+                The transformation between the <strong>world space</strong> \( \mathbf{X_w} = (x_w, y_w, z_w) \) and the <strong>camera space</strong> \( \mathbf{X_c} = (x_c, y_c, z_c) \) can be expressed using a <em>rotation matrix</em> \( \mathbf{R_{3 \times 3}} \) and a <em>translation vector</em> \( \mathbf{t} \):
+            </p>
+            <p style="text-align: center;">
+                \[
+                \mathbf{X_c} = \begin{bmatrix} x_c \\ y_c \\ z_c \\ 1 \end{bmatrix} = \begin{bmatrix} \mathbf{R_{3 \times 3}} & \mathbf{t} \\ \mathbf{0_{1 \times 3}} & 1 \end{bmatrix} \begin{bmatrix} x_w \\ y_w \\ z_w \\ 1 \end{bmatrix}
+                \]
+            </p>
+            <p>
+                The inverse of this matrix, called the <strong>camera-to-world (c2w)</strong> transformation matrix, converts points from camera space to world space:
+            </p>
+            <p style="text-align: center;">
+                \[
+                \mathbf{X_w} = \text{c2w} \cdot \begin{bmatrix} x_c \\ y_c \\ z_c \\ 1 \end{bmatrix}
+                \]
+            </p>
+
+            <!-- Pixel to Camera Coordinate Conversion -->
+            <h3>Pixel to Camera Coordinate Conversion</h3>
+            <p>
+                To convert a pixel coordinate \( (u, v) \) to a point in the camera coordinate system \( \mathbf{x_c} \), we use the <strong>intrinsic matrix</strong> \( \mathbf{K} \):
+            </p>
+            <p style="text-align: center;">
+                \[
+                \mathbf{K} = \begin{bmatrix} f_x & 0 & o_x \\ 0 & f_y & o_y \\ 0 & 0 & 1 \end{bmatrix}
+                \]
+            </p>
+            <p>
+                The intrinsic matrix projects a 3D point \( (x_c, y_c, z_c) \) in the camera coordinate system to a 2D pixel coordinate \( (u, v) \):
+            </p>
+            <p style="text-align: center;">
+                \[
+                s \begin{bmatrix} u \\ v \\ 1 \end{bmatrix} = \mathbf{K} \begin{bmatrix} x_c \\ y_c \\ z_c \end{bmatrix}
+                \]
+            </p>
+            <p>
+                To invert this process and transform a pixel back to camera coordinates:
+            </p>
+            <p style="text-align: center;">
+                \[
+                \mathbf{x_c} = s \cdot \mathbf{K}^{-1} \begin{bmatrix} u \\ v \\ 1 \end{bmatrix}
+                \]
+            </p>
+
+            <!-- Pixel to Ray Conversion -->
+            <h3>Pixel to Ray Conversion</h3>
+            <p>
+                A ray can be defined by an <strong>origin</strong> \( \mathbf{r_o} \) and a <strong>direction</strong> \( \mathbf{r_d} \). For a given pixel \( (u, v) \), the ray origin is the camera position:
+            </p>
+            <p style="text-align: center;">
+                \[
+                \mathbf{r_o} = \mathbf{c2w}_{[:3, 3]}
+                \]
+            </p>
+            <p>
+                To compute the ray direction \( \mathbf{r_d} \), convert the pixel to camera coordinates \( \mathbf{x_c} \), transform it to world coordinates \( \mathbf{x_w} \), and normalize:
+            </p>
+            <p style="text-align: center;">
+                \[
+                \mathbf{r_d} = \frac{\mathbf{x_w} - \mathbf{r_o}}{\|\mathbf{x_w} - \mathbf{r_o}\|}
+                \]
+            </p>
+        </div>
+
+        <!-- Section 2.2: Sampling Rays and Points -->
+        <div class="block">
+            <h2>2.2: Sampling Rays and Points</h2>
+            <p>
+                To train the NeRF model, we need to sample points along the rays. The depth values \( t \) are uniformly sampled within a range \([near, far]\):
+            </p>
+            <p style="text-align: center;">
+                \[
+                t = \text{linspace}(near, far, n\_samples)
+                \]
+            </p>
+            <p>
+                The 3D points along each ray can be computed as:
+            </p>
+            <p style="text-align: center;">
+                \[
+                \mathbf{x} = \mathbf{r_o} + t \cdot \mathbf{r_d}
+                \]
+            </p>
+            <p>
+                To improve generalization and avoid overfitting, small perturbations can be added to the sampled points during training:
+            </p>
+            <p style="text-align: center;">
+                \[
+                t = t + \text{random\_perturbation}
+                \]
+            </p>
+        </div>
+
+        <!-- Visualization Section -->
+        <div class="block">
+            <h2>2.3: Visualization of Cameras, Rays, and Samples</h2>
+            <p>
+                Below is a visualization showing the cameras, the rays emitted from the cameras, and the sampled points along those rays.
+            </p>
+            <div class="image-card">
+                <img src="./media/render_1.png" alt="Visualization of Cameras, Rays, and Samples">
+                <div class="description"><strong>Figure 1: Visualization of Cameras, Rays, and Samples in 3D</strong></div>
+            </div>
+            <div class="image-card">
+                <img src="./media/render_2.png" alt="Visualization of Cameras, Rays, and Samples">
+                <div class="description"><strong>Figure 1: Visualization of Cameras, Rays, and Samples in 3D</strong></div>
+            </div>
+        </div>
+
+        <!-- Section 2.4: Neural Radiance Field -->
+        <div class="block">
+            <h2>2.4: Neural Radiance Field</h2>
+
+            <p>
+                After sampling points in 3D, the goal is to predict the <strong>density</strong> and <strong>color</strong> of each point using a neural network. The network architecture is similar to the one used in Part 1, but with the following changes:
+            </p>
+
+            <ul>
+                <li><strong>Input:</strong> The network takes 3D world coordinates and a 3D ray direction vector as input.</li>
+                <li><strong>Deeper MLP:</strong> The network is deeper to handle the complexity of representing a 3D scene.</li>
+                <li><strong>Mid-layer Injection:</strong> The positional encoding (PE) of the input is injected into the middle layers of the MLP to help the network retain spatial information.</li>
+            </ul>
+
+            <h3>Network Architecture</h3>
+            <p>
+                The network first processes the positional encoding (PE) of the 3D input coordinates through several linear layers with ReLU activations. After a skip connection, the view direction (also encoded with PE) is concatenated with the features and passed through additional layers to produce the final RGB color and density outputs.
+            </p>
+
+            <div class="image-card">
+                <img src="./media/nerf_architecture.jpg" alt="NeRF Network Architecture">
+                <div class="description"><strong>Figure: NeRF Network Architecture</strong></div>
+            </div>
+
+            <p>
+                This architecture allows the network to learn the 3D structure and color of the scene from multiple views.
+            </p>
+        </div>
+
+        <!-- Section 2.5: Volume Rendering -->
+        <div class="block">
+            <h2>2.5: Volume Rendering</h2>
+
+            <p>
+                The goal of volume rendering is to compute the final color of each ray by integrating the densities and colors predicted by the network along the ray's path. The core volume rendering equation is given by:
+            </p>
+
+            <div class="math-block">
+                \[
+                C(\mathbf{r}) = \int_{t_n}^{t_f} T(t) \sigma(\mathbf{r}(t)) c(\mathbf{r}(t), \mathbf{d}) dt
+                \]
+                where \( T(t) = \exp\left(-\int_{t_n}^{t} \sigma(\mathbf{r}(s)) ds\right) \) is the probability that the ray has not been terminated before \( t \).
+            </div>
+
+            <h3>Discrete Approximation</h3>
+            <p>
+                To compute this integral numerically, we discretize it into a sum over sampled points along the ray. The discrete approximation is:
+            </p>
+
+            <div class="math-block">
+                \[
+                \hat{C}(\mathbf{r}) = \sum_{i=1}^{N} T_i \left(1 - \exp(-\sigma_i \delta_i)\right) c_i, \quad \text{where} \quad T_i = \exp\left(-\sum_{j=1}^{i-1} \sigma_j \delta_j\right)
+                \]
+            </div>
+
+            <p>
+                Here, \( c_i \) is the color predicted by the network at the \( i \)-th sample point, \( \sigma_i \) is the density, and \( \delta_i \) is the distance between adjacent sample points.
+            </p>
+
+            <h3>Implementation Description</h3>
+            <p>
+                The implementation involves:
+            </p>
+            <ul>
+                <li><strong>Sampling Points:</strong> Uniformly sample points along each ray between a near and far range.</li>
+                <li><strong>Predicting Densities and Colors:</strong> Use the NeRF network to predict densities \( \sigma \) and colors \( c \) for the sampled points.</li>
+                <li><strong>Computing Weights:</strong> Calculate the transmittance \( T_i \) and weights based on the densities.</li>
+                <li><strong>Rendering:</strong> Sum the weighted colors to obtain the final rendered color for each ray.</li>
+            </ul>
+
+            <p>
+                This method allows us to render realistic images of the 3D scene by combining the contributions of all sampled points along each ray.
+            </p>
+
+
+        <!-- Deliverables -->
+        <h4>1. Visualization of Rays and Samples</h4>
+        <p>
+            The following figures show the visualization of the rays, samples, and camera frustums. These visualizations help verify that the rays are correctly generated from the camera positions.
+        </p>
+
+        <div class="gallery">
+            <!-- First Image -->
+            <div class="image-card">
+                <img src="./media/rays_400.png" alt="Visualization of Rays and Samples - View 1">
+                <div class="description"><strong>Rays for Iter 50</strong></div>
+            </div>
+
+            <!-- Second Image -->
+            <div class="image-card">
+                <img src="./media/rays_300.png" alt="Visualization of Rays and Samples - View 2">
+                <div class="description"><strong>Rays for Iter 100</strong></div>
+            </div>
+
+            <!-- Third Image -->
+            <div class="image-card">
+                <img src="./media/rays_200.png" alt="Visualization of Rays and Samples - View 3">
+                <div class="description"><strong>Rays for Iter 200</strong></div>
+            </div>
+
+            <!-- Fourth Image -->
+            <div class="image-card">
+                <img src="./media/rays_500.png" alt="Visualization of Rays and Samples - Close-up 1">
+                <div class="description"><strong>Rays for Iter 500</strong></div>
+            </div>
+
+            <!-- Fifth Image -->
+            <div class="image-card">
+                <img src="./media/rays_800.png" alt="Visualization of Rays and Samples - Close-up 2">
+                <div class="description"><strong>Rays for Iter 800</strong></div>
+            </div>
+
+            <!-- Sixth Image -->
+            <div class="image-card">
+                <img src="./media/rays_1000.png" alt="Visualization of Rays and Samples - Top View">
+                <div class="description"><strong>Rays for Iter 1000</strong></div>
+            </div>
+        </div>
+
+
+        <h4>2. Training Process Visualization</h4>
+        <p>
+            Below are the predicted images at different stages of training, illustrating how the network learns to reconstruct the 3D scene:
+        </p>
+        <div class="gallery">
+            <div class="image-card">
+                <img src="./media/predictions/run_2/step_50.png" alt="Predicted Image at Iteration 100">
+                <div class="description"><strong>Iteration 50</strong></div>
+            </div>
+            <div class="image-card">
+                <img src="./media/predictions/run_2/step_100.png" alt="Predicted Image at Iteration 500">
+                <div class="description"><strong>Iteration 100</strong></div>
+            </div>
+            <div class="image-card">
+                <img src="./media/predictions/run_2/step_200.png" alt="Predicted Image at Iteration 1000">
+                <div class="description"><strong>Iteration 200</strong></div>
+            </div>
+            <div class="image-card">
+                <img src="./media/predictions/run_2/step_1000.png" alt="Predicted Image at Iteration 2000">
+                <div class="description"><strong>Iteration 500</strong></div>
+            </div>
+            <div class="image-card">
+                <img src="./media/predictions/run_2/step_2000.png" alt="Predicted Image at Iteration 3000">
+                <div class="description"><strong>Iteration 800</strong></div>
+            </div>
+            <div class="image-card">
+                <img src="./media/predictions/run_2/step_5000.png" alt="Predicted Image at Iteration 5000">
+                <div class="description"><strong>Iteration 1000</strong></div>
+            </div>
+        </div>
+        <h4>3. PSNR Curve on the Validation Set</h4>
+        <p>
+            The PSNR curve shows the reconstruction quality on the validation set across iterations. PSNR of 23.16 is achieved
+        </p>
+        <div class="image-card">
+            <img src="./media/psnr_curve.png" alt="PSNR Curve on Validation Set">
+            <div class="description"><strong>Figure: PSNR Curve on Validation Set</strong></div>
+        </div>
+
+        <h4>4. Novel View Rendering</h4>
+        <p>
+            The trained NeRF can render novel views of the Lego scene from unseen camera angles. The following video demonstrates the rendered views using the test camera poses:
+        </p>
+
+        <div class="gallery">
+            <!-- Novel View Rendering -->
+            <div class="image-card">
+                <img src="./media/lego_gifs/novel_views_interp.gif" alt="Depth Map Visualization - Novel Views">
+                <div class="description"><strong>Depth Map Visualization - Novel Views</strong></div>
+            </div>
+        </div>
+
+        <h4>5. Depth Map Video </h4>
+        <p>
+            The depth map visualization helps understand the geometry of the scene. This feature is part of the <strong>Bells and Whistles</strong>, enhancing the visualization of depth maps. Below is a video showing the depth maps with contrast enhancement:
+        </p>
+
+        <div class="gallery">
+            <!-- Depth Map Visualization with Contrast Enhancement -->
+            <div class="image-card">
+                <img src="./media/lego_gifs/lego_depth_map_video.gif" alt="Depth Map Visualization">
+                <div class="description"><strong>Depth Map Visualization</strong></div>
+            </div>Z
+        </div>
+    </div>
+    </div>
+</body>
+</html>
