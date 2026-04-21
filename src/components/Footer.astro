@@ -1,0 +1,26 @@
+---
+import { site } from '../config';
+const year = new Date().getFullYear();
+---
+
+<footer class="hairline mt-24">
+  <div class="container-page flex flex-col gap-4 py-10 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-xs" style="color: var(--color-fg-dim); font-family: var(--font-mono);">
+      © {year} {site.name}
+    </p>
+    <ul class="flex flex-wrap gap-5 text-xs" style="font-family: var(--font-mono);">
+      {site.links.github && (
+        <li><a href={site.links.github} class="link-underline" style="color: var(--color-fg-muted);">github</a></li>
+      )}
+      {site.links.linkedin && (
+        <li><a href={site.links.linkedin} class="link-underline" style="color: var(--color-fg-muted);">linkedin</a></li>
+      )}
+      {site.links.twitter && (
+        <li><a href={site.links.twitter} class="link-underline" style="color: var(--color-fg-muted);">twitter</a></li>
+      )}
+      {site.email && (
+        <li><a href={`mailto:${site.email}`} class="link-underline" style="color: var(--color-fg-muted);">{site.email}</a></li>
+      )}
+    </ul>
+  </div>
+</footer>

@@ -1,0 +1,90 @@
+---
+import Base from '../layouts/Base.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import { getCollection } from 'astro:content';
+import { site } from '../config';
+
+const all = (await getCollection('projects', (p) => !p.data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+const featured = all.filter((p) => p.data.featured).slice(0, 4);
+const recent = all.filter((p) => !p.data.featured).slice(0, 6);
+---
+
+<Base>
+  <!-- Hero -->
+  <section class="pt-8 pb-20">
+    <p class="mb-6 text-xs reveal" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
+      <span style="color: var(--color-accent);">●</span> {site.location}
+    </p>
+    <h1 class="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl reveal">
+      {site.name.split(' ')[0]},
+      <span style="color: var(--color-fg-muted);">
+        {site.bio}
+      </span>
+    </h1>
+    <div class="mt-8 flex flex-wrap gap-3 reveal">
+      <a href="/projects" class="rounded-md border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]" style="border-color: var(--color-border-strong);">
+        View projects
+      </a>
+      {site.links.github && (
+        <a href={site.links.github} class="rounded-md border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]" style="border-color: var(--color-border-strong); color: var(--color-fg-muted);">
+          GitHub ↗
+        </a>
+      )}
+    </div>
+  </section>
+
+  <!-- Featured -->
+  {featured.length > 0 && (
+    <section class="pb-16">
+      <div class="mb-6 flex items-baseline justify-between reveal">
+        <h2 class="text-sm font-semibold tracking-wide uppercase" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
+          Featured
+        </h2>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {featured.map((p) => <ProjectCard project={p} />)}
+      </div>
+    </section>
+  )}
+
+  <!-- Recent -->
+  {recent.length > 0 && (
+    <section class="pb-16">
+      <div class="mb-6 flex items-baseline justify-between reveal">
+        <h2 class="text-sm font-semibold tracking-wide uppercase" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
+          Recent
+        </h2>
+        <a href="/projects" class="text-xs link-underline" style="color: var(--color-fg-muted); font-family: var(--font-mono);">
+          all projects →
+        </a>
+      </div>
+      <ul class="divide-y" style="border-color: var(--color-border);">
+        {recent.map((p) => (
+          <li class="reveal">
+            <a href={`/projects/${p.id}`} class="group flex items-baseline justify-between gap-4 py-4 transition-colors">
+              <div class="min-w-0">
+                <h3 class="truncate text-base font-medium transition-colors group-hover:text-[var(--color-accent)]">
+                  {p.data.title}
+                </h3>
+                <p class="mt-1 truncate text-sm" style="color: var(--color-fg-muted);">
+                  {p.data.summary}
+                </p>
+              </div>
+              <span class="shrink-0 text-xs" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
+                {p.data.date.getFullYear()}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  {all.length === 0 && (
+    <p class="text-sm" style="color: var(--color-fg-muted);">
+      No projects yet. Add one in <code class="tag">src/content/projects/</code>.
+    </p>
+  )}
+</Base>

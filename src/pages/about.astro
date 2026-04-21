@@ -1,0 +1,26 @@
+---
+import Base from '../layouts/Base.astro';
+import { site } from '../config';
+---
+
+<Base title="About" description={site.description}>
+  <section class="pb-10">
+    <h1 class="text-3xl font-semibold tracking-tight reveal">About</h1>
+  </section>
+
+  <div class="prose-custom reveal">
+    <p>
+      {site.bio}
+    </p>
+    <p>
+      Edit this page at <code>src/pages/about.astro</code> to make it yours.
+    </p>
+
+    <h2>Elsewhere</h2>
+    <ul>
+      {site.links.github && <li><a href={site.links.github}>GitHub</a></li>}
+      {site.links.linkedin && <li><a href={site.links.linkedin}>LinkedIn</a></li>}
+      {site.email && <li><a href={`mailto:${site.email}`}>{site.email}</a></li>}
+    </ul>
+  </div>
+</Base>

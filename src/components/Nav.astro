@@ -1,0 +1,41 @@
+---
+import { site } from '../config';
+
+const pathname = Astro.url.pathname;
+const isActive = (href: string) =>
+  href === '/' ? pathname === '/' : pathname.startsWith(href);
+
+const links = [
+  { href: '/', label: 'Home' },
+  { href: '/projects', label: 'Projects' },
+  { href: '/about', label: 'About' },
+];
+---
+
+<header class="fixed top-0 right-0 left-0 z-40 backdrop-blur-md" style="background: rgba(10,10,10,0.6); border-bottom: 1px solid var(--color-border);">
+  <nav class="container-page flex h-14 items-center justify-between">
+    <a href="/" class="text-sm font-semibold tracking-tight">
+      <span style="color: var(--color-fg)">{site.name}</span>
+      <span style="color: var(--color-accent)">.</span>
+    </a>
+    <ul class="flex items-center gap-1 text-sm">
+      {
+        links.map((l) => (
+          <li>
+            <a
+              href={l.href}
+              class="rounded px-3 py-1.5 transition-colors"
+              style={
+                isActive(l.href)
+                  ? 'color: var(--color-fg); background: var(--color-surface);'
+                  : 'color: var(--color-fg-muted);'
+              }
+            >
+              {l.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+</header>
