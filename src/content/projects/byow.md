@@ -17,6 +17,8 @@ featured: true
 status: "shipped"
 ---
 
+![A world generated from seed 7777 — rooms connected by Dijkstra-planned hallways](/images/byow-hero.png)
+
 ## What it is
 
 A 2D tile-based world that builds itself. Give it a numeric seed and it plants
@@ -40,6 +42,23 @@ becomes a node in an `EdgeWeightedGraph`.
 drawing spaghetti, hallways are planned as shortest paths in the room graph
 using `DijkstraUndirectedSP`. The result feels designed rather than random —
 you get a coherent layout, not a maze.
+
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
+  <figure style="margin: 0;">
+    <img src="/images/byow-dense.png" alt="Dense seed" style="margin: 0; border-radius: 0.5rem;" />
+    <figcaption style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--color-fg-dim); text-align: center; margin-top: 0.4rem;">seed 7</figcaption>
+  </figure>
+  <figure style="margin: 0;">
+    <img src="/images/byow-hero.png" alt="Balanced seed" style="margin: 0; border-radius: 0.5rem;" />
+    <figcaption style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--color-fg-dim); text-align: center; margin-top: 0.4rem;">seed 7777</figcaption>
+  </figure>
+  <figure style="margin: 0;">
+    <img src="/images/byow-sparse.png" alt="Sparse seed" style="margin: 0; border-radius: 0.5rem;" />
+    <figcaption style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--color-fg-dim); text-align: center; margin-top: 0.4rem;">seed 314159</figcaption>
+  </figure>
+</div>
+
+*Three different seeds, three different worlds — same engine. Density, room count, and hallway topology all fall out of the seed deterministically.*
 
 **Two front-ends, one engine.** The core engine exposes two modes:
 

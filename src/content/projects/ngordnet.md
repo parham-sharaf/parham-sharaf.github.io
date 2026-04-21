@@ -17,6 +17,8 @@ featured: true
 status: "shipped"
 ---
 
+![A sample query — relative frequency of *queen*, *question*, *quantum*, and *quiet* in books published between 1900 and 2000, computed from the Google Books NGrams corpus.](/images/ngordnet-plot.png)
+
 ## What it is
 
 `ngordnet` takes two large open datasets — **WordNet**'s semantic graph of
@@ -26,7 +28,10 @@ you cross them in a browser. You type in a concept like *transportation* or
 that concept (its full hyponym subtree) has been used in books over time.
 
 It's a small tool, but it turns two static datasets into something you can
-actually interrogate.
+actually interrogate. The plot above shows what a single-word query looks like:
+*question* dominates the 20th century, *quantum* emerges after 1920 and climbs
+with the rise of physics, and the two everyday words — *queen* and *quiet* —
+hold roughly steady.
 
 ## What's interesting about it
 
