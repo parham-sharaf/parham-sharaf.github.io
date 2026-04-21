@@ -1,15 +1,19 @@
 export const site = {
-  name: 'Your Name',
-  handle: 'yourname',
-  title: 'Your Name — Portfolio',
+  name: 'Parham Sharafoleslami',
+  shortName: 'Parham',
+  handle: 'parham',
+  title: 'Parham Sharafoleslami',
   description:
-    'Engineer and researcher working across autonomy, controls, and ML.',
-  bio: 'Engineer and researcher working across autonomy, controls, and ML. Currently building things that move on their own and think for themselves.',
-  email: 'you@example.com',
+    'UC Berkeley engineer and researcher working across autonomy, controls, and LLM reasoning.',
+  bio: 'engineer and researcher at UC Berkeley working across autonomy, controls, and LLM reasoning — from counter-UAS flight simulation to hallucination mitigation in language models.',
+  email: 'parham-sharaf@berkeley.edu',
   location: 'Berkeley, CA',
+  // The name to bold in publication author lists — add any variants you've published under
+  authorAliases: ['Parham Sharafoleslami', 'Parham Sharaf'],
   links: {
-    github: 'https://github.com/yourhandle',
-    linkedin: 'https://linkedin.com/in/yourhandle',
+    github: '',
+    linkedin: '',
+    scholar: '',
     twitter: '',
   },
 } as const;

@@ -25,4 +25,23 @@ const projects = defineCollection({
   }),
 });
 
-export const collections = { projects };
+const publications = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/publications' }),
+  schema: z.object({
+    title: z.string(),
+    authors: z.array(z.string()),
+    venue: z.string(),
+    date: z.coerce.date(),
+    tldr: z.string(),
+    role: z.string().optional(),
+    arxiv: z.string().optional(),
+    pdf: z.string().optional(),
+    code: z.string().url().optional(),
+    project: z.string().url().optional(),
+    tags: z.array(z.string()).default([]),
+    featured: z.boolean().default(false),
+    draft: z.boolean().default(false),
+  }),
+});
+
+export const collections = { projects, publications };
