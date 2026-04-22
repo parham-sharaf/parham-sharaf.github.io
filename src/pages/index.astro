@@ -4,21 +4,36 @@ import ProjectCard from '../components/ProjectCard.astro';
 import PublicationItem from '../components/PublicationItem.astro';
 import { getCollection } from 'astro:content';
 import { site } from '../config';
+import { aggregateCategories, aggregateTech, sortedProjects } from '../utils/project';
 
-const projects = (await getCollection('projects', (p) => !p.data.draft)).sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
-);
-const featuredProjects = projects.filter((p) => p.data.featured).slice(0, 4);
+const allProjects = sortedProjects(await getCollection('projects'));
+const featuredProjects = allProjects.filter((p) => p.data.featured).slice(0, 6);
 
 const pubs = (await getCollection('publications', (p) => !p.data.draft)).sort(
   (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
 );
 const featuredPubs = pubs.filter((p) => p.data.featured).slice(0, 3);
+
+const topTech = aggregateTech(allProjects).slice(0, 16);
+const categoryCount = aggregateCategories(allProjects).length;
+
+// Rough years active — earliest project date to now
+const years = allProjects.length
+  ? new Date().getFullYear() - Math.min(...allProjects.map((p) => p.data.date.getFullYear())) + 1
+  : 0;
+
+const stats = [
+  { label: 'Projects', value: allProjects.length },
+  { label: 'Categories', value: categoryCount },
+  { label: 'Publications', value: pubs.length },
+  { label: 'Years active', value: years },
+];
 ---
 
 <Base>
   <!-- Hero -->
-  <section class="pt-8 pb-20">
+  <section class="hero pt-6 pb-14">
+    <div class="hero-glow" aria-hidden="true"></div>
     <p class="mb-6 text-xs reveal" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
       <span style="color: var(--color-accent);">●</span> {site.location}
     </p>
@@ -29,19 +44,44 @@ const featuredPubs = pubs.filter((p) => p.data.featured).slice(0, 3);
       </span>
     </h1>
     <div class="mt-8 flex flex-wrap gap-3 reveal">
-      <a href="/projects" class="rounded-md border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]" style="border-color: var(--color-border-strong);">
-        Projects
+      <a href={site.links.resume} download class="cta-primary">
+        ↓ Resume
       </a>
-      <a href="/publications" class="rounded-md border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]" style="border-color: var(--color-border-strong); color: var(--color-fg-muted);">
-        Publications
-      </a>
+      <a href="/projects" class="cta-secondary">Projects</a>
+      <a href="/publications" class="cta-secondary">Publications</a>
+      <a href="/about" class="cta-secondary">About</a>
       {site.links.github && (
-        <a href={site.links.github} class="rounded-md border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]" style="border-color: var(--color-border-strong); color: var(--color-fg-muted);">
-          GitHub ↗
-        </a>
+        <a href={site.links.github} class="cta-secondary">GitHub ↗</a>
       )}
     </div>
+
+    <!-- Stats row -->
+    <ul class="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4 reveal">
+      {stats.map((s) => (
+        <li class="stat">
+          <span class="stat-value">{s.value}</span>
+          <span class="stat-label">{s.label}</span>
+        </li>
+      ))}
+    </ul>
   </section>
+
+  <!-- Tech strip -->
+  {topTech.length > 0 && (
+    <section class="pb-16 reveal">
+      <p class="mb-3 text-xs tracking-wider uppercase" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
+        Working with
+      </p>
+      <div class="flex flex-wrap gap-1.5">
+        {topTech.map(({ tech, count }) => (
+          <span class="tech-pill" title={`${count} project${count > 1 ? 's' : ''}`}>
+            {tech}
+            <span class="tech-pill-count">{count}</span>
+          </span>
+        ))}
+      </div>
+    </section>
+  )}
 
   <!-- Featured projects -->
   {featuredProjects.length > 0 && (
@@ -51,10 +91,10 @@ const featuredPubs = pubs.filter((p) => p.data.featured).slice(0, 3);
           Featured projects
         </h2>
         <a href="/projects" class="text-xs link-underline" style="color: var(--color-fg-muted); font-family: var(--font-mono);">
-          all →
+          all {allProjects.length} →
         </a>
       </div>
-      <div class="grid gap-4 sm:grid-cols-2">
+      <div class="grid gap-5 sm:grid-cols-2">
         {featuredProjects.map((p) => <ProjectCard project={p} />)}
       </div>
     </section>
@@ -77,9 +117,130 @@ const featuredPubs = pubs.filter((p) => p.data.featured).slice(0, 3);
     </section>
   )}
 
-  {projects.length === 0 && pubs.length === 0 && (
+  {allProjects.length === 0 && pubs.length === 0 && (
     <p class="text-sm" style="color: var(--color-fg-muted);">
       No content yet.
     </p>
   )}
 </Base>
+
+<style>
+  /* Hero visual — animated subtle radial + grain */
+  .hero {
+    position: relative;
+    isolation: isolate;
+  }
+  .hero-glow {
+    position: absolute;
+    pointer-events: none;
+    top: -180px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 110%;
+    height: 520px;
+    z-index: -1;
+    background:
+      radial-gradient(800px 300px at 30% 40%, rgba(255, 106, 31, 0.12), transparent 65%),
+      radial-gradient(600px 260px at 75% 60%, rgba(80, 140, 255, 0.08), transparent 65%);
+    filter: blur(0.5px);
+    animation: glow-shift 18s ease-in-out infinite alternate;
+  }
+  @keyframes glow-shift {
+    0%   { transform: translateX(-52%) scale(1.0); opacity: 0.9; }
+    50%  { transform: translateX(-48%) scale(1.05); opacity: 1; }
+    100% { transform: translateX(-50%) scale(1.02); opacity: 0.85; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-glow { animation: none; }
+  }
+
+  /* CTA buttons */
+  .cta-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    background: var(--color-accent);
+    color: var(--color-bg);
+    transition: all 160ms ease;
+  }
+  .cta-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px -6px rgba(255, 106, 31, 0.5);
+  }
+  .cta-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-fg-muted);
+    transition: all 160ms ease;
+  }
+  .cta-secondary:hover {
+    color: var(--color-fg);
+    background: var(--color-surface);
+    border-color: var(--color-fg-muted);
+  }
+
+  /* Stats row */
+  .stat {
+    padding: 1rem 1.1rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--color-fg);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-fg-dim);
+  }
+
+  .tech-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.6rem 0.25rem 0.75rem;
+    border-radius: 9999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-soft);
+    font-size: 0.8125rem;
+    font-family: var(--font-mono);
+    color: var(--color-fg-muted);
+    transition: all 160ms ease;
+  }
+  .tech-pill:hover {
+    color: var(--color-fg);
+    border-color: var(--color-accent);
+    background: var(--color-accent-soft);
+  }
+  .tech-pill-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.3rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    background: var(--color-surface);
+    color: var(--color-fg-dim);
+  }
+</style>

@@ -1,41 +1,92 @@
 ---
 import type { CollectionEntry } from 'astro:content';
+import { coverImage, readingTime } from '../utils/project';
 
 interface Props {
   project: CollectionEntry<'projects'>;
+  /** Compact mode uses a smaller vertical card — default is the rich grid card. */
+  variant?: 'grid' | 'compact';
 }
 
-const { project } = Astro.props;
+const { project, variant = 'grid' } = Astro.props;
 const { title, summary, category, tech, status } = project.data;
 const href = `/projects/${project.id}`;
+const cover = coverImage(project);
+const mins = readingTime(project);
 ---
 
-<a href={href} class="group block rounded-lg border p-5 transition-all reveal" style="border-color: var(--color-border); background: var(--color-bg-soft);">
-  <div class="flex items-start justify-between gap-4">
-    <div class="min-w-0">
-      <div class="mb-2 flex items-center gap-2 text-xs" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
-        <span>{category}</span>
-        {status !== 'shipped' && (
-          <>
-            <span>·</span>
-            <span style={status === 'in-progress' ? 'color: var(--color-accent);' : ''}>{status}</span>
-          </>
-        )}
-      </div>
-      <h3 class="text-lg font-semibold transition-colors group-hover:text-[var(--color-accent)]">
-        {title}
-      </h3>
-      <p class="mt-2 text-sm leading-relaxed" style="color: var(--color-fg-muted);">
-        {summary}
-      </p>
-    </div>
-    <span class="mt-1 shrink-0 text-sm transition-transform group-hover:translate-x-0.5" style="color: var(--color-fg-dim);">
-      →
-    </span>
-  </div>
-  {tech.length > 0 && (
-    <div class="mt-4 flex flex-wrap gap-1.5">
-      {tech.slice(0, 5).map((t) => <span class="tag">{t}</span>)}
+<a
+  href={href}
+  class={`project-card reveal group block overflow-hidden rounded-xl border transition-all ${variant === 'compact' ? 'is-compact' : 'is-grid'}`}
+  style="border-color: var(--color-border); background: var(--color-bg-soft);"
+  data-category={category}
+  data-tech={tech.join(',')}
+>
+  {cover && (
+    <div class="cover-wrap relative overflow-hidden" style="background: var(--color-surface);">
+      <img
+        src={cover}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        class="cover-img h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+      />
+      <div class="cover-fade pointer-events-none absolute inset-0"></div>
+      {status !== 'shipped' && (
+        <span
+          class="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wider backdrop-blur"
+          style={`font-family: var(--font-mono); background: rgba(10,10,10,0.72); color: var(--color-accent); border: 1px solid var(--color-border-strong);`}
+        >
+          {status}
+        </span>
+      )}
     </div>
   )}
+
+  <div class="p-5">
+    <div class="mb-2 flex items-center gap-2 text-xs" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
+      <span>{category}</span>
+      <span>·</span>
+      <span>{mins} min read</span>
+    </div>
+
+    <h3 class="text-lg font-semibold leading-snug transition-colors group-hover:text-[var(--color-accent)]">
+      {title}
+    </h3>
+    <p class="mt-2 text-sm leading-relaxed" style="color: var(--color-fg-muted);">
+      {summary}
+    </p>
+
+    {tech.length > 0 && (
+      <div class="mt-4 flex flex-wrap gap-1.5">
+        {tech.slice(0, 4).map((t) => <span class="tag">{t}</span>)}
+        {tech.length > 4 && <span class="tag">+{tech.length - 4}</span>}
+      </div>
+    )}
+  </div>
 </a>
+
+<style>
+  .project-card {
+    display: flex;
+    flex-direction: column;
+  }
+  .project-card.is-grid .cover-wrap {
+    aspect-ratio: 16 / 9;
+  }
+  .project-card.is-compact .cover-wrap {
+    aspect-ratio: 21 / 9;
+  }
+  .cover-fade {
+    background: linear-gradient(
+      180deg,
+      rgba(10, 10, 10, 0) 55%,
+      rgba(10, 10, 10, 0.35) 100%
+    );
+  }
+  .project-card:hover {
+    border-color: var(--color-border-strong);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px -20px rgba(255, 106, 31, 0.35);
+  }
+</style>

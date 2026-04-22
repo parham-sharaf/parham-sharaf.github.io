@@ -1,0 +1,43 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Not found" description="Page not found">
+  <section class="flex min-h-[50vh] flex-col items-start justify-center">
+    <p class="text-xs tracking-widest" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
+      ERROR · 404
+    </p>
+    <h1 class="mt-3 text-5xl font-semibold tracking-tight sm:text-6xl">
+      Not <span style="color: var(--color-accent);">here.</span>
+    </h1>
+    <p class="mt-4 max-w-md text-base sm:text-lg" style="color: var(--color-fg-muted);">
+      This page doesn't exist — or it moved. No hard feelings. Try one of these instead.
+    </p>
+    <div class="mt-8 flex flex-wrap gap-3">
+      <a href="/" class="rounded-md border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]" style="border-color: var(--color-accent); color: var(--color-accent);">
+        ← Home
+      </a>
+      <a href="/projects" class="rounded-md border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]" style="border-color: var(--color-border-strong); color: var(--color-fg-muted);">
+        Projects
+      </a>
+      <a href="/about" class="rounded-md border px-4 py-2 text-sm transition-colors hover:bg-[var(--color-surface)]" style="border-color: var(--color-border-strong); color: var(--color-fg-muted);">
+        About
+      </a>
+    </div>
+    <p class="mt-12 text-xs" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
+      Press <kbd class="kbd">⌘K</kbd> to search
+    </p>
+  </section>
+</Base>
+
+<style>
+  .kbd {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface);
+    color: var(--color-fg-muted);
+  }
+</style>

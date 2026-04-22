@@ -4,16 +4,17 @@ export const site = {
   handle: 'parham',
   title: 'Parham Sharafoleslami',
   description:
-    'UC Berkeley engineer and researcher working across autonomy, controls, and LLM reasoning.',
-  bio: 'engineer and researcher at UC Berkeley working across autonomy, controls, and LLM reasoning — from counter-UAS flight simulation to hallucination mitigation in language models.',
+    'UC Berkeley engineer working on autonomy, controls, and machine learning.',
+  bio: 'engineer at UC Berkeley. autonomy, controls, machine learning.',
   email: 'parham-sharaf@berkeley.edu',
   location: 'Berkeley, CA',
   // The name to bold in publication author lists — add any variants you've published under
   authorAliases: ['Parham Sharafoleslami', 'Parham Sharaf'],
   links: {
-    github: '',
-    linkedin: '',
+    github: 'https://github.com/parham-sharaf',
+    linkedin: 'https://linkedin.com/in/parham-sharafoleslami',
     scholar: '',
     twitter: '',
+    resume: '/resume.pdf',
   },
 } as const;

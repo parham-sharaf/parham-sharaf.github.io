@@ -1,0 +1,71 @@
+---
+import Base from '../layouts/Base.astro';
+
+const updated = new Date('2026-04-21').toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+
+const blocks = [
+  {
+    title: 'Working on',
+    items: [
+      'Decentralized fleet coordination for airport ground operations — MAPPO + Buffered Voronoi Cells for collision-free taxi sequencing',
+      'MEng thesis on safe imitation learning for race-car controllers (DAgger + MPC teacher)',
+      'ML engineering at IntuigenceAI — graph-based digital twins for P&ID schematics',
+    ],
+  },
+  {
+    title: 'Reading',
+    items: [
+      '"Learning to Drive by Imitating Surroundings" — Kendall et al.',
+      '"Constrained Policy Optimization" (Achiam et al.) — relevant to airport-coordination safety filter',
+      'The UniMotion + DriveLM papers on multi-modal driving policies',
+    ],
+  },
+  {
+    title: 'Learning',
+    items: [
+      'CUDA kernel writing for custom diffusion sampling',
+      'Rust (slowly, mostly for robotics systems + CLI tools)',
+    ],
+  },
+  {
+    title: 'Not working on',
+    items: [
+      'Random side projects — trying to keep scope tight until graduation',
+      'Twitter / social media',
+    ],
+  },
+];
+---
+
+<Base title="Now" description="What I'm currently working on">
+  <section class="pb-10">
+    <p class="mb-4 text-xs reveal" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
+      Last updated · {updated}
+    </p>
+    <h1 class="text-4xl font-semibold tracking-tight sm:text-5xl reveal">Now</h1>
+    <p class="mt-4 text-base sm:text-lg reveal" style="color: var(--color-fg-muted);">
+      A snapshot of what I'm actively spending time on, reading, and thinking about.
+      Inspired by <a href="https://nownownow.com/about" class="link-underline" style="color: var(--color-accent);">Derek Sivers' /now</a> movement.
+    </p>
+  </section>
+
+  {blocks.map((b) => (
+    <section class="pb-10 reveal">
+      <h2 class="mb-4 text-xs font-semibold tracking-widest uppercase" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
+        {b.title}
+      </h2>
+      <ul class="space-y-3">
+        {b.items.map((it) => (
+          <li class="flex gap-3 text-sm leading-relaxed" style="color: var(--color-fg-muted);">
+            <span style="color: var(--color-accent); flex-shrink: 0;">▸</span>
+            <span>{it}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</Base>

@@ -9,34 +9,159 @@ const links = [
   { href: '/', label: 'Home' },
   { href: '/projects', label: 'Projects' },
   { href: '/publications', label: 'Publications' },
+  { href: '/now', label: 'Now' },
   { href: '/about', label: 'About' },
 ];
 ---
 
-<header class="fixed top-0 right-0 left-0 z-40 backdrop-blur-md" style="background: rgba(10,10,10,0.6); border-bottom: 1px solid var(--color-border);">
+<header class="fixed top-0 right-0 left-0 z-40 backdrop-blur-md" style="background: rgba(var(--color-bg-rgb), 0.6); border-bottom: 1px solid var(--color-border);">
   <nav class="container-page flex h-14 items-center justify-between">
     <a href="/" class="text-sm font-semibold tracking-tight">
       <span style="color: var(--color-fg)">{site.name}</span>
       <span style="color: var(--color-accent)">.</span>
     </a>
-    <ul class="flex items-center gap-1 text-sm">
-      {
-        links.map((l) => (
-          <li>
-            <a
-              href={l.href}
-              class="rounded px-3 py-1.5 transition-colors"
-              style={
-                isActive(l.href)
-                  ? 'color: var(--color-fg); background: var(--color-surface);'
-                  : 'color: var(--color-fg-muted);'
-              }
-            >
-              {l.label}
-            </a>
-          </li>
-        ))
-      }
-    </ul>
+    <div class="flex items-center gap-1">
+      <ul class="hidden items-center gap-1 text-sm sm:flex">
+        {
+          links.map((l) => (
+            <li>
+              <a
+                href={l.href}
+                class="rounded px-3 py-1.5 transition-colors"
+                style={
+                  isActive(l.href)
+                    ? 'color: var(--color-fg); background: var(--color-surface);'
+                    : 'color: var(--color-fg-muted);'
+                }
+              >
+                {l.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+
+      <button
+        type="button"
+        class="nav-icon-btn"
+        aria-label="Search"
+        data-action="search"
+        title="Search (⌘K)"
+      >
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75">
+          <circle cx="8.5" cy="8.5" r="5.5" />
+          <line x1="13" y1="13" x2="17" y2="17" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        class="nav-icon-btn"
+        aria-label="Toggle theme"
+        data-action="theme"
+        title="Toggle theme"
+      >
+        <svg class="theme-icon theme-icon-dark" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M14.5 11.5A6 6 0 1 1 8.5 5a5 5 0 0 0 6 6.5z" />
+        </svg>
+        <svg class="theme-icon theme-icon-light" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75">
+          <circle cx="10" cy="10" r="3.5" />
+          <line x1="10" y1="2" x2="10" y2="4" />
+          <line x1="10" y1="16" x2="10" y2="18" />
+          <line x1="2" y1="10" x2="4" y2="10" />
+          <line x1="16" y1="10" x2="18" y2="10" />
+          <line x1="4.2" y1="4.2" x2="5.6" y2="5.6" />
+          <line x1="14.4" y1="14.4" x2="15.8" y2="15.8" />
+          <line x1="4.2" y1="15.8" x2="5.6" y2="14.4" />
+          <line x1="14.4" y1="5.6" x2="15.8" y2="4.2" />
+        </svg>
+      </button>
+    </div>
   </nav>
 </header>
+
+<style>
+  .nav-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.375rem;
+    color: var(--color-fg-muted);
+    transition: all 140ms ease;
+    cursor: pointer;
+  }
+  .nav-icon-btn:hover {
+    color: var(--color-fg);
+    background: var(--color-surface);
+  }
+  .theme-icon-light { display: none; }
+  html[data-theme='light'] .theme-icon-dark { display: none; }
+  html[data-theme='light'] .theme-icon-light { display: inline; }
+</style>
+
+<script>
+  function setupNav() {
+    // Search trigger
+    document.querySelectorAll<HTMLElement>('[data-action="search"]').forEach((btn) => {
+      btn.onclick = () => {
+        const palette = document.getElementById('search-palette');
+        if (palette) {
+          palette.hidden = false;
+          requestAnimationFrame(() => palette.classList.add('is-open'));
+          const input = document.getElementById('palette-input') as HTMLInputElement | null;
+          input?.focus();
+          document.body.style.overflow = 'hidden';
+        }
+      };
+    });
+
+    // Theme toggle
+    document.querySelectorAll<HTMLElement>('[data-action="theme"]').forEach((btn) => {
+      btn.onclick = () => {
+        const current = document.documentElement.dataset.theme ?? 'dark';
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        try { localStorage.setItem('theme', next); } catch (_) {}
+      };
+    });
+
+    // Keyboard shortcuts: g h / g p / g a / g n / g u / ? for help
+    let buffer = '';
+    let timer: number | null = null;
+    const goto: Record<string, string> = {
+      gh: '/',
+      gp: '/projects',
+      ga: '/about',
+      gn: '/now',
+      gu: '/publications',
+    };
+    document.onkeydown = (e) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // Build-up 2-key sequence
+      if (e.key.length === 1) {
+        buffer += e.key.toLowerCase();
+        if (timer) clearTimeout(timer);
+        timer = window.setTimeout(() => { buffer = ''; }, 800);
+        if (goto[buffer]) {
+          e.preventDefault();
+          const href = goto[buffer];
+          buffer = '';
+          // Use ClientRouter navigation
+          // @ts-ignore
+          if (window.astro?.navigate) {
+            // @ts-ignore
+            window.astro.navigate(href);
+          } else {
+            location.href = href;
+          }
+        }
+      }
+    };
+  }
+  setupNav();
+  document.addEventListener('astro:page-load', setupNav);
+</script>

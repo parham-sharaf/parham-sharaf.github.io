@@ -21,6 +21,7 @@ const year = new Date().getFullYear();
       {site.email && (
         <li><a href={`mailto:${site.email}`} class="link-underline" style="color: var(--color-fg-muted);">{site.email}</a></li>
       )}
+      <li><a href="/rss.xml" class="link-underline" style="color: var(--color-fg-muted);">rss</a></li>
     </ul>
   </div>
 </footer>

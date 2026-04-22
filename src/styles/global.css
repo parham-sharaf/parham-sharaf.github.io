@@ -3,8 +3,12 @@
 @theme {
   --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", monospace;
+}
 
+:root,
+html[data-theme='dark'] {
   --color-bg: #0a0a0a;
+  --color-bg-rgb: 10, 10, 10;
   --color-bg-soft: #111111;
   --color-surface: #17171a;
   --color-border: #1f1f22;
@@ -14,6 +18,20 @@
   --color-fg-dim: #6b6b70;
   --color-accent: #ff6a1f;
   --color-accent-soft: #ff6a1f1a;
+}
+
+html[data-theme='light'] {
+  --color-bg: #fbfbfa;
+  --color-bg-rgb: 251, 251, 250;
+  --color-bg-soft: #f5f5f3;
+  --color-surface: #ecebe7;
+  --color-border: #e2e1dc;
+  --color-border-strong: #c9c8c2;
+  --color-fg: #1a1a1a;
+  --color-fg-muted: #484848;
+  --color-fg-dim: #8a8a85;
+  --color-accent: #d9480f;
+  --color-accent-soft: #d9480f14;
 }
 
 @layer base {
@@ -27,14 +45,14 @@
 
   body {
     background:
-      radial-gradient(1200px 600px at 50% -200px, rgba(255, 106, 31, 0.08), transparent 60%),
+      radial-gradient(1200px 600px at 50% -200px, var(--color-accent-soft), transparent 60%),
       var(--color-bg);
     min-height: 100vh;
   }
 
   ::selection {
     background: var(--color-accent);
-    color: #0a0a0a;
+    color: var(--color-bg);
   }
 
   a {
@@ -134,14 +152,22 @@
   .prose-custom img {
     @apply my-6 rounded-lg border;
     border-color: var(--color-border);
+    transition: transform 200ms ease, border-color 200ms ease;
+  }
+  .prose-custom img:hover {
+    transform: scale(1.01);
+    border-color: var(--color-border-strong);
   }
 }
 
-/* scroll reveal */
+/* scroll reveal — staggered via CSS var --i */
 .reveal {
   opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 600ms ease, transform 600ms ease;
+  transform: translateY(14px);
+  transition:
+    opacity 620ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 620ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition-delay: calc(var(--i, 0) * 60ms);
 }
 .reveal.is-visible {
   opacity: 1;
@@ -153,4 +179,11 @@
     transform: none;
     transition: none;
   }
+}
+
+/* Smooth Astro view-transitions defaults */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 }

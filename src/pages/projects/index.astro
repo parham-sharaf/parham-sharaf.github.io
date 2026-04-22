@@ -1,10 +1,11 @@
 ---
 import Base from '../../layouts/Base.astro';
+import ProjectCard from '../../components/ProjectCard.astro';
 import { getCollection } from 'astro:content';
+import { aggregateCategories, sortedProjects } from '../../utils/project';
 
-const all = (await getCollection('projects', (p) => !p.data.draft)).sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
-);
+const all = sortedProjects(await getCollection('projects'));
+const categories = aggregateCategories(all);
 
 // group by year
 const byYear = new Map<number, typeof all>();
@@ -17,47 +18,128 @@ const years = [...byYear.keys()].sort((a, b) => b - a);
 ---
 
 <Base title="Projects" description="A list of things I've built.">
-  <section class="pb-6">
+  <section class="pb-4">
     <h1 class="text-3xl font-semibold tracking-tight reveal">Projects</h1>
     <p class="mt-3 text-sm reveal" style="color: var(--color-fg-muted);">
-      A running list of things I've built, written, or researched.
+      {all.length} projects across {categories.length} categories — filter by topic below.
     </p>
   </section>
 
+  {categories.length > 0 && (
+    <section class="sticky top-14 z-20 -mx-6 mb-8 backdrop-blur-md reveal" style="background: rgba(10,10,10,0.75); border-bottom: 1px solid var(--color-border);">
+      <div class="container-page flex flex-wrap items-center gap-2 py-3">
+        <button
+          class="filter-chip is-active"
+          data-filter="all"
+          type="button"
+        >
+          All <span class="count">{all.length}</span>
+        </button>
+        {categories.map((c) => (
+          <button class="filter-chip" data-filter={c} type="button">
+            {c}
+            <span class="count">{all.filter((p) => p.data.category === c).length}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )}
+
   {years.map((year) => (
-    <section class="pt-10 pb-2">
-      <div class="mb-4 flex items-baseline gap-3 reveal">
+    <section class="year-section pb-10" data-year={year}>
+      <div class="mb-5 flex items-baseline gap-3 reveal">
         <h2 class="text-xs font-semibold tracking-widest" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
           {year}
         </h2>
         <div class="h-px flex-1" style="background: var(--color-border);"></div>
       </div>
-      <ul class="divide-y" style="border-color: var(--color-border);">
+      <div class="grid gap-5 sm:grid-cols-2">
         {byYear.get(year)!.map((p) => (
-          <li class="reveal">
-            <a href={`/projects/${p.id}`} class="group grid grid-cols-[1fr_auto] items-baseline gap-4 py-4 sm:grid-cols-[1fr_auto_auto]">
-              <div class="min-w-0">
-                <h3 class="truncate text-base font-medium transition-colors group-hover:text-[var(--color-accent)]">
-                  {p.data.title}
-                </h3>
-                <p class="mt-1 truncate text-sm" style="color: var(--color-fg-muted);">
-                  {p.data.summary}
-                </p>
-              </div>
-              <span class="hidden shrink-0 text-xs sm:inline" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
-                {p.data.category}
-              </span>
-              <span class="shrink-0 text-xs transition-transform group-hover:translate-x-0.5" style="color: var(--color-fg-dim);">
-                →
-              </span>
-            </a>
-          </li>
+          <ProjectCard project={p} />
         ))}
-      </ul>
+      </div>
     </section>
   ))}
 
   {all.length === 0 && (
     <p class="pt-10 text-sm" style="color: var(--color-fg-muted);">Nothing here yet.</p>
   )}
+
+  <p id="empty-hint" class="hidden pt-6 text-sm reveal" style="color: var(--color-fg-muted);">
+    No projects match this filter.
+  </p>
 </Base>
+
+<style>
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    font-family: var(--font-mono);
+    color: var(--color-fg-muted);
+    background: var(--color-bg-soft);
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 160ms ease;
+    white-space: nowrap;
+  }
+  .filter-chip:hover {
+    color: var(--color-fg);
+    border-color: var(--color-border-strong);
+  }
+  .filter-chip.is-active {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+    background: var(--color-accent-soft);
+  }
+  .filter-chip .count {
+    display: inline-block;
+    min-width: 1.25rem;
+    padding: 0 0.375rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--color-fg-dim);
+    text-align: center;
+  }
+  .filter-chip.is-active .count {
+    background: var(--color-accent);
+    color: var(--color-bg);
+  }
+</style>
+
+<script>
+  const chips = document.querySelectorAll<HTMLButtonElement>('.filter-chip');
+  const cards = document.querySelectorAll<HTMLAnchorElement>('.project-card');
+  const yearSections = document.querySelectorAll<HTMLElement>('.year-section');
+  const emptyHint = document.getElementById('empty-hint');
+
+  function applyFilter(filter: string) {
+    let visibleTotal = 0;
+    cards.forEach((card) => {
+      const category = card.dataset.category ?? '';
+      const match = filter === 'all' || category === filter;
+      card.style.display = match ? '' : 'none';
+      if (match) visibleTotal++;
+    });
+    // hide year sections that became empty
+    yearSections.forEach((section) => {
+      const stillVisible = section.querySelectorAll<HTMLElement>(
+        '.project-card:not([style*="display: none"])'
+      );
+      (section as HTMLElement).style.display = stillVisible.length ? '' : 'none';
+    });
+    if (emptyHint) emptyHint.classList.toggle('hidden', visibleTotal > 0);
+  }
+
+  chips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      chips.forEach((c) => c.classList.remove('is-active'));
+      chip.classList.add('is-active');
+      applyFilter(chip.dataset.filter ?? 'all');
+    });
+  });
+</script>

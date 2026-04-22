@@ -1,0 +1,395 @@
+---
+import { getCollection } from 'astro:content';
+import { sortedProjects, readingTime } from '../utils/project';
+
+const projects = sortedProjects(await getCollection('projects'));
+const pubs = await getCollection('publications', (p) => !p.data.draft);
+
+const items = [
+  ...projects.map((p) => ({
+    type: 'project' as const,
+    title: p.data.title,
+    summary: p.data.summary,
+    category: p.data.category,
+    tech: (p.data.tech ?? []).join(' '),
+    tags: (p.data.tags ?? []).join(' '),
+    href: `/projects/${p.id}`,
+    mins: readingTime(p),
+  })),
+  ...pubs.map((p) => ({
+    type: 'publication' as const,
+    title: p.data.title,
+    summary: p.data.tldr,
+    category: p.data.venue,
+    tech: '',
+    tags: (p.data.tags ?? []).join(' '),
+    href: '/publications',
+    mins: 0,
+  })),
+];
+
+const pages = [
+  { type: 'page' as const, title: 'About', summary: 'Who I am, where I work, how to reach me', category: 'Page', tech: '', tags: '', href: '/about', mins: 0 },
+  { type: 'page' as const, title: 'Now', summary: "What I'm working on right now", category: 'Page', tech: '', tags: '', href: '/now', mins: 0 },
+  { type: 'page' as const, title: 'Projects', summary: 'All projects', category: 'Page', tech: '', tags: '', href: '/projects', mins: 0 },
+  { type: 'page' as const, title: 'Publications', summary: 'Papers and preprints', category: 'Page', tech: '', tags: '', href: '/publications', mins: 0 },
+];
+
+const allItems = [...pages, ...items];
+---
+
+<div id="search-palette" class="palette" role="dialog" aria-modal="true" aria-label="Search" hidden>
+  <div class="palette-backdrop"></div>
+  <div class="palette-inner">
+    <div class="palette-input-wrap">
+      <span class="palette-icon">⌕</span>
+      <input
+        id="palette-input"
+        type="text"
+        placeholder="Search projects, publications, pages..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <kbd class="palette-kbd">ESC</kbd>
+    </div>
+    <ul id="palette-results" class="palette-results" role="listbox"></ul>
+    <div class="palette-footer">
+      <div class="palette-hints">
+        <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+        <span><kbd>↵</kbd> open</span>
+        <span><kbd>ESC</kbd> close</span>
+      </div>
+      <span class="palette-count" id="palette-count"></span>
+    </div>
+  </div>
+</div>
+
+<script is:inline define:vars={{ allItems }}>
+  window.__SEARCH_ITEMS__ = allItems;
+</script>
+
+<style>
+  .palette {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 15vh;
+    opacity: 0;
+    transition: opacity 140ms ease;
+  }
+  .palette[hidden] { display: none !important; }
+  .palette.is-open { opacity: 1; }
+  .palette-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(6, 6, 8, 0.72);
+    backdrop-filter: blur(6px);
+  }
+  .palette-inner {
+    position: relative;
+    width: min(42rem, calc(100vw - 2rem));
+    border-radius: 0.85rem;
+    background: var(--color-bg-soft);
+    border: 1px solid var(--color-border-strong);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    transform: translateY(-4px) scale(0.98);
+    transition: transform 180ms ease;
+  }
+  .palette.is-open .palette-inner {
+    transform: translateY(0) scale(1);
+  }
+  .palette-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .palette-icon {
+    color: var(--color-fg-dim);
+    font-size: 1rem;
+  }
+  #palette-input {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    color: var(--color-fg);
+    font-size: 1rem;
+    font-family: inherit;
+  }
+  #palette-input::placeholder {
+    color: var(--color-fg-dim);
+  }
+  .palette-kbd, .palette-footer kbd {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface);
+    color: var(--color-fg-muted);
+  }
+  .palette-results {
+    max-height: 56vh;
+    overflow-y: auto;
+    padding: 0.5rem;
+    list-style: none;
+    margin: 0;
+  }
+  .palette-results:empty + .palette-footer { display: none; }
+  .palette-result {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .palette-result.is-active,
+  .palette-result:hover {
+    background: var(--color-surface);
+  }
+  .palette-result-top {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--color-fg);
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .palette-result-type {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.25rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-fg-dim);
+  }
+  .palette-result-type.is-project { color: #ff9a5a; }
+  .palette-result-type.is-publication { color: #7aa7ff; }
+  .palette-result-type.is-page { color: var(--color-fg-muted); }
+  .palette-result-summary {
+    font-size: 0.8125rem;
+    color: var(--color-fg-muted);
+    line-height: 1.45;
+  }
+  .palette-result-meta {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--color-fg-dim);
+    display: flex;
+    gap: 0.5rem;
+  }
+  .palette-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--color-fg-dim);
+    font-size: 0.875rem;
+  }
+  .palette-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 1.1rem;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-fg-dim);
+  }
+  .palette-hints {
+    display: flex;
+    gap: 1.2rem;
+    font-size: 0.75rem;
+  }
+  .palette-hints span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .palette-count {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+</style>
+
+<script>
+  interface Item {
+    type: 'project' | 'publication' | 'page';
+    title: string;
+    summary: string;
+    category: string;
+    tech: string;
+    tags: string;
+    href: string;
+    mins: number;
+  }
+
+  const palette = document.getElementById('search-palette') as HTMLElement | null;
+  const input = document.getElementById('palette-input') as HTMLInputElement | null;
+  const resultsEl = document.getElementById('palette-results') as HTMLUListElement | null;
+  const countEl = document.getElementById('palette-count') as HTMLElement | null;
+  const backdrop = palette?.querySelector('.palette-backdrop') as HTMLElement | null;
+
+  let activeIndex = 0;
+  let currentResults: Item[] = [];
+
+  function items(): Item[] {
+    return (window as any).__SEARCH_ITEMS__ ?? [];
+  }
+
+  function score(item: Item, q: string): number {
+    if (!q) return 0;
+    const ql = q.toLowerCase();
+    const hay = `${item.title} ${item.summary} ${item.category} ${item.tech} ${item.tags}`.toLowerCase();
+    if (!hay.includes(ql)) {
+      // Check per-word substring fallback
+      const words = ql.split(/\s+/).filter(Boolean);
+      if (words.length > 1 && words.every((w) => hay.includes(w))) return 1;
+      return 0;
+    }
+    // Weighted scoring
+    let s = 1;
+    if (item.title.toLowerCase().includes(ql)) s += 10;
+    if (item.title.toLowerCase().startsWith(ql)) s += 5;
+    if (item.category.toLowerCase().includes(ql)) s += 2;
+    return s;
+  }
+
+  function render(query: string) {
+    if (!resultsEl || !countEl) return;
+    const q = query.trim();
+    const ranked = q
+      ? items()
+          .map((i) => ({ i, s: score(i, q) }))
+          .filter((r) => r.s > 0)
+          .sort((a, b) => b.s - a.s)
+          .slice(0, 10)
+          .map((r) => r.i)
+      : items().slice(0, 8);
+
+    currentResults = ranked;
+    activeIndex = 0;
+
+    if (ranked.length === 0) {
+      resultsEl.innerHTML = '<li class="palette-empty">No results for "' + escapeHtml(q) + '"</li>';
+      countEl.textContent = '0';
+      return;
+    }
+
+    resultsEl.innerHTML = ranked
+      .map((item, idx) => {
+        const meta = [item.category, item.mins ? `${item.mins} min` : null].filter(Boolean).join(' · ');
+        return `
+          <li class="palette-result ${idx === 0 ? 'is-active' : ''}" role="option" data-href="${item.href}" data-idx="${idx}">
+            <div class="palette-result-top">
+              <span class="palette-result-type is-${item.type}">${item.type}</span>
+              <span>${escapeHtml(item.title)}</span>
+            </div>
+            <div class="palette-result-summary">${escapeHtml(item.summary)}</div>
+            <div class="palette-result-meta">${escapeHtml(meta)}</div>
+          </li>
+        `;
+      })
+      .join('');
+    countEl.textContent = String(ranked.length);
+  }
+
+  function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as Record<string, string>)[c] ?? c,
+    );
+  }
+
+  function openPalette() {
+    if (!palette || !input) return;
+    palette.hidden = false;
+    requestAnimationFrame(() => palette.classList.add('is-open'));
+    input.value = '';
+    render('');
+    setTimeout(() => input.focus(), 40);
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closePalette() {
+    if (!palette) return;
+    palette.classList.remove('is-open');
+    setTimeout(() => {
+      palette.hidden = true;
+      document.body.style.overflow = '';
+    }, 140);
+  }
+
+  function setActive(i: number) {
+    if (!resultsEl) return;
+    const items = resultsEl.querySelectorAll<HTMLElement>('.palette-result');
+    items.forEach((el, idx) => el.classList.toggle('is-active', idx === i));
+    activeIndex = i;
+    items[i]?.scrollIntoView({ block: 'nearest' });
+  }
+
+  function open(href: string) {
+    closePalette();
+    // Use Astro ClientRouter if available
+    // @ts-ignore
+    if (window.astro?.navigate) {
+      // @ts-ignore
+      window.astro.navigate(href);
+    } else {
+      location.href = href;
+    }
+  }
+
+  // Global keyboard
+  document.addEventListener('keydown', (e) => {
+    const target = e.target as HTMLElement;
+    const isInputFocused = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+    // Cmd+K / Ctrl+K always opens
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      openPalette();
+      return;
+    }
+    // "/" opens search when no input focused
+    if (e.key === '/' && !isInputFocused && (palette?.hidden ?? true)) {
+      e.preventDefault();
+      openPalette();
+      return;
+    }
+
+    if (palette?.hidden) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closePalette();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (currentResults.length) setActive((activeIndex + 1) % currentResults.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (currentResults.length) setActive((activeIndex - 1 + currentResults.length) % currentResults.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const href = currentResults[activeIndex]?.href;
+      if (href) open(href);
+    }
+  });
+
+  input?.addEventListener('input', (e) => render((e.target as HTMLInputElement).value));
+  resultsEl?.addEventListener('click', (e) => {
+    const target = (e.target as HTMLElement).closest<HTMLElement>('.palette-result');
+    if (target?.dataset.href) open(target.dataset.href);
+  });
+  resultsEl?.addEventListener('mouseover', (e) => {
+    const target = (e.target as HTMLElement).closest<HTMLElement>('.palette-result');
+    const idx = target?.dataset.idx;
+    if (idx != null) setActive(+idx);
+  });
+  backdrop?.addEventListener('click', closePalette);
+</script>
