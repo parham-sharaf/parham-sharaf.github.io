@@ -37,7 +37,7 @@ const toc = headings.filter((h) => h.depth === 2);
 const showToc = toc.length >= 3;
 ---
 
-<Base title={title} description={summary} image={cover}>
+<Base title={title} description={summary} image={cover} width="prose">
   <article>
     <a href="/projects" class="inline-block text-xs link-underline" style="font-family: var(--font-mono); color: var(--color-fg-muted);">
       ← all projects
@@ -165,7 +165,7 @@ const showToc = toc.length >= 3;
   .toc {
     position: fixed;
     top: 6rem;
-    right: max(1.5rem, calc((100vw - 48rem) / 2 - 14rem));
+    right: max(1.5rem, calc((100vw - 48rem) / 2 - 15rem));
     width: 14rem;
     max-height: calc(100vh - 9rem);
     overflow-y: auto;

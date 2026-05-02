@@ -43,15 +43,17 @@ const links = [
 
       <button
         type="button"
-        class="nav-icon-btn"
+        class="nav-search-btn"
         aria-label="Search"
         data-action="search"
         title="Search (⌘K)"
       >
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75">
           <circle cx="8.5" cy="8.5" r="5.5" />
           <line x1="13" y1="13" x2="17" y2="17" />
         </svg>
+        <span class="nav-search-label">Search</span>
+        <kbd class="nav-kbd">⌘K</kbd>
       </button>
 
       <button
@@ -95,6 +97,55 @@ const links = [
   .nav-icon-btn:hover {
     color: var(--color-fg);
     background: var(--color-surface);
+  }
+
+  /* Search button — visible label + ⌘K hint on wider screens */
+  .nav-search-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    height: 2rem;
+    padding: 0 0.55rem;
+    margin-right: 0.25rem;
+    border-radius: 0.4rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-soft);
+    color: var(--color-fg-muted);
+    font-size: 0.8125rem;
+    transition: all 140ms ease;
+    cursor: pointer;
+  }
+  .nav-search-btn:hover {
+    color: var(--color-fg);
+    border-color: var(--color-border-strong);
+    background: var(--color-surface);
+  }
+  .nav-search-label {
+    display: none;
+  }
+  @media (min-width: 640px) {
+    .nav-search-label {
+      display: inline;
+    }
+  }
+  .nav-kbd {
+    display: none;
+    align-items: center;
+    height: 1.25rem;
+    padding: 0 0.35rem;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 0.25rem;
+    background: var(--color-surface);
+    color: var(--color-fg-dim);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1;
+    letter-spacing: 0.02em;
+  }
+  @media (min-width: 640px) {
+    .nav-kbd {
+      display: inline-flex;
+    }
   }
   .theme-icon-light { display: none; }
   html[data-theme='light'] .theme-icon-dark { display: none; }

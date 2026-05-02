@@ -11,12 +11,15 @@ interface Props {
   description?: string;
   /** Absolute or site-relative path to a social-card image */
   image?: string;
+  /** "wide" (default) or "prose" — prose narrows the main content for readability */
+  width?: 'wide' | 'prose';
 }
 
-const { title, description, image } = Astro.props;
+const { title, description, image, width = 'wide' } = Astro.props;
 const pageTitle = title ? `${title} — ${site.name}` : site.title;
 const pageDesc = description ?? site.description;
 const ogImage = new URL(image ?? '/og-default.png', Astro.site ?? Astro.url.origin).toString();
+const containerClass = width === 'prose' ? 'container-prose' : 'container-page';
 ---
 
 <!doctype html>
@@ -55,7 +58,7 @@ const ogImage = new URL(image ?? '/og-default.png', Astro.site ?? Astro.url.orig
   </head>
   <body>
     <Nav />
-    <main class="container-page pt-24 pb-24">
+    <main class={`${containerClass} pt-24 pb-24`}>
       <slot />
     </main>
     <Footer />
