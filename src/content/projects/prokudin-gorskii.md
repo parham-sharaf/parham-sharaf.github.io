@@ -16,22 +16,40 @@ featured: true
 status: "shipped"
 ---
 
-![](/images/cs180_p1_hero.png)
+![](/images/cs180_p1_hero.jpg)
 
-**Before color film existed, Sergei Prokudin-Gorskii traveled across the Russian Empire with a custom camera that took three grayscale exposures through red, green, and blue filters**. A century later, his 2000+ glass plates survive — but aligning the three channels back into color images is non-trivial: tiny mechanical shifts between exposures mean naive stacking produces ghosted, rainbow-fringed chaos.
+**Before color film existed, Sergei Prokudin-Gorskii traveled across the Russian Empire with a camera that exposed three grayscale plates through red, green, and blue filters.** A century later, the plates survive — but the three exposures are slightly offset, and naive stacking produces ghosted, rainbow-fringed chaos.
 
-<div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-fg-muted); display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1.5rem; margin: 1.5rem 0;">
-  <span style="color: var(--color-accent);">input</span><span>3 stacked grayscale plates (B, G, R) from glass negatives</span>
-  <span style="color: var(--color-accent);">method</span><span>Image pyramid + normalized cross-correlation search</span>
-  <span style="color: var(--color-accent);">output</span><span>Aligned RGB composite, 14 Prokudin-Gorskii photographs</span>
+![](/images/cs180_p1_plates.jpg)
+
+**Three glass plates per photograph** — blue, green, and red filtered exposures of the same subject, captured seconds apart. Each looks like a tinted black-and-white image. The job: find the (x, y) shift that aligns each pair, then stack them into one full-color image.
+
+## The Alignment Problem
+
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/cs180_p1_emir_ghosted.jpg" alt="Naive stack — channels offset by tens of pixels" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_emir_aligned.jpg" alt="After pyramid + NCC alignment" style="margin: 0; border-radius: 0.5rem;" />
 </div>
 
-## The Alignment Pipeline
+**Left:** stacking the three plates without alignment. The R channel sits 104 pixels down and 56 right of the B channel — every edge becomes a rainbow. **Right:** after pyramid-search NCC alignment. Pyramid downsampling cuts the search from O(n²) brute force to O(log n); normalized cross-correlation handles the brightness mismatch between filters that would dominate a sum-of-squared-differences score.
 
-![](/images/cs180_p1_pipeline.png)
+## The Collection
 
-**Why NCC over SSD?** Normalized cross-correlation is invariant to global brightness differences between plates (which differ because each filter absorbs light differently). Sum-of-squared-differences, by contrast, can be dominated by overall intensity mismatch rather than structural alignment.
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/cs180_p1_color_emir.jpg" alt="Emir of Bukhara" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_lady.jpg" alt="Lady" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_three_generations.jpg" alt="Three generations" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_harvesters.jpg" alt="Harvesters" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_train.jpg" alt="Steam locomotive" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_melons.jpg" alt="Melons" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_onion_church.jpg" alt="Onion-domed church" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_church.jpg" alt="Church" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_self_portrait.jpg" alt="Self portrait" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_sculpture.jpg" alt="Sculpture" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_icon.jpg" alt="Icon" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_cathedral.jpg" alt="Cathedral" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_monastery.jpg" alt="Monastery" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p1_color_tobolsk.jpg" alt="Tobolsk" style="margin: 0; border-radius: 0.5rem;" />
+</div>
 
-**Why pyramids?** Brute-force search for the right (x, y) offset at full resolution means evaluating millions of candidate offsets per plate for large images (the original TIFFs are 10,000 pixels tall). Image pyramids turn this O(n²) search into O(log n): align at the coarsest level, then refine offsets at each successive resolution. A 100× speedup with no accuracy loss.
-
-**Edge-based refinement**: the emir image has colored clothing that confuses intensity-based alignment — the red robe looks bright in the red channel but dim in blue/green. Switching to gradient-magnitude alignment (where the structural *edges* drive the correlation rather than raw pixel values) resolves this. The emir image visible above was aligned via edge features.
+The emir's robe was the hardest plate — its red dye absorbs differently in each filter, so intensity-based alignment fails. Switching to gradient-magnitude features (where edges drive the correlation, not raw pixels) fixes it.

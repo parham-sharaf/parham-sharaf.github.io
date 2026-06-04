@@ -17,29 +17,40 @@ featured: true
 status: "shipped"
 ---
 
-![](/images/cs180_p3_pipeline.png)
+![](/images/cs180_p3_tri_hero.png)
 
-**Transforming one face into another smoothly requires warping both shape and appearance**. The geometric problem: given matching landmark points on two faces, how do you move every pixel consistently? The solution — triangulate the landmarks, then apply a different affine transform inside each triangle. Every pixel gets warped by whichever triangle contains it.
+**Delaunay triangulation meshes on two faces — ~50 manually-annotated landmarks each, triangulated to maximize minimum angles.** Every pixel in the morph is warped by its containing triangle via affine transform. The mesh is what makes smooth identity transitions possible.
 
-<div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-fg-muted); display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1.5rem; margin: 1.5rem 0;">
-  <span style="color: var(--color-accent);">correspondences</span><span>~50 manually-annotated landmark pairs per face</span>
-  <span style="color: var(--color-accent);">triangulation</span><span>Delaunay (maximizes smallest angle across all triangles)</span>
-  <span style="color: var(--color-accent);">warping</span><span>Per-triangle affine + cross-dissolve of appearance</span>
-  <span style="color: var(--color-accent);">applications</span><span>Morph animation, mean faces, caricatures</span>
+## The Triangulation
+
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/cs180_p3_tri_parham.jpg" alt="Parham triangulation" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p3_tri_conor.jpg" alt="Conor triangulation" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p3_tri_elon.jpg" alt="Elon triangulation" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p3_tri_christian.jpg" alt="Christian triangulation" style="margin: 0; border-radius: 0.5rem;" />
 </div>
+
+~50 manually-annotated landmarks per face. Delaunay triangulation builds a mesh that maximizes the smallest angle, avoiding sliver triangles that would warp poorly. Every pixel gets warped by whichever triangle contains it.
 
 ## Morph Sequence
 
-![](/images/cs180_p3_sequence.png)
+![](/images/cs180_p3_filmstrip.jpg)
 
-**α is both the shape-blend weight and the color-blend weight**. At α=0 you see the first face. At α=1 you see the second. In between, the shape interpolates landmark-by-landmark, and the appearance is a weighted average of both warped images. The trick: applying different α weights to shape vs color lets you isolate "whose geometry" from "whose appearance."
+Five frames from a 46-frame morph. α controls both the shape blend and the cross-dissolve weight — landmarks march across, pixels fade across, and the identity slowly shifts.
 
-## Mean Faces and Caricatures
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; align-items: start; margin: 1.5rem 0;">
+  <img src="/images/cs180_p3_morph.gif" alt="Morph animation" style="margin: 0; border-radius: 0.5rem;" />
+  <div style="font-size: 0.95rem; line-height: 1.6;">
+    The full animation: 46 frames at 30fps. Notice the eyes shift first — they're the strongest landmarks. The jawline takes longer because it crosses many more triangles, each contributing a partial pull.
+  </div>
+</div>
 
-![](/images/cs180_p3_mean.png)
+## Mean Face & Caricature
 
-**Take 40+ face photos, annotate correspondences on each, average the landmarks → you get the "mean face" of that population**. Warp any individual face to the mean's shape and you see what they'd look like with average proportions. Warp the mean toward an individual's shape and you see the mean person with their proportions.
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/cs180_p3_meanface.jpg" alt="Population mean face" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p3_to_mean.jpg" alt="My face warped to mean shape" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/cs180_p3_caricature.jpg" alt="Caricature — α=1.5 extrapolation" style="margin: 0; border-radius: 0.5rem;" />
+</div>
 
-**Caricatures work by extrapolation**. Instead of interpolating between self and mean with α ∈ [0, 1], push α > 1 — the face gets *further* from the mean, exaggerating whatever made it distinctive. My caricature (α = 1.5) amplifies everything my face does that the average doesn't: wider jaw here, narrower eyes there, whatever the outlier features are.
-
-The underlying insight: **the mean face is the boring null hypothesis**, and every real face lives in a direction away from it. Caricature is just "keep going in that direction."
+**Left:** the population mean of 40+ Danish faces — landmark-averaged, then appearance-averaged. **Center:** my face warped to the mean's shape (still my texture, average proportions). **Right:** a caricature at α=1.5 — instead of interpolating *toward* the mean, extrapolate *away* from it. Whatever made my face distinctive gets exaggerated.

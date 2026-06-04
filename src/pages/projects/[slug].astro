@@ -37,7 +37,7 @@ const toc = headings.filter((h) => h.depth === 2);
 const showToc = toc.length >= 3;
 ---
 
-<Base title={title} description={summary} image={cover} width="prose">
+<Base title={title} description={summary} image={cover} width="wide">
   <article>
     <a href="/projects" class="inline-block text-xs link-underline" style="font-family: var(--font-mono); color: var(--color-fg-muted);">
       ← all projects
@@ -149,6 +149,14 @@ const showToc = toc.length >= 3;
 </Base>
 
 <style>
+  /* Keep article header + back-link at reading width */
+  article > a,
+  article > header {
+    max-width: 48rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
   /* Scroll progress bar */
   .scroll-progress {
     position: fixed;

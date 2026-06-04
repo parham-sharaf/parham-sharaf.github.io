@@ -163,6 +163,33 @@ html[data-theme='light'] {
     transform: scale(1.01);
     border-color: var(--color-border-strong);
   }
+
+  /* Project pages use the wide container; constrain only text to reading width */
+  .prose-custom > p,
+  .prose-custom > h2,
+  .prose-custom > h3,
+  .prose-custom > ul,
+  .prose-custom > ol,
+  .prose-custom > blockquote,
+  .prose-custom > pre,
+  .prose-custom > hr,
+  .prose-custom > table {
+    max-width: 48rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Paragraphs that are just an image wrapper: let them be full-width */
+  .prose-custom > p:has(> img:only-child) {
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .prose-custom > p > img:only-child {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
 }
 
 /* scroll reveal — staggered via CSS var --i */
