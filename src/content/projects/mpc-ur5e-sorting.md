@@ -1,6 +1,6 @@
 ---
 title: "MPC for UR5e Robotic Arm — Warehouse Sorting"
-summary: "Model Predictive Control for a UR5e manipulator with analytical DH kinematics and real-time obstacle avoidance. Picks and stacks colored cubes around obstacles using a receding-horizon CasADi/IPOPT solver, replanning every timestep in MuJoCo."
+summary: "Model Predictive Control for a UR5e manipulator with analytical DH kinematics and real-time obstacle avoidance. Picks and stacks colored cubes around obstacles using a receding-horizon CasADi/IPOPT solver, replanning every timestep in MuJoCo — deployed on real hardware."
 date: 2025-12-20
 category: "Robotics"
 tech:
@@ -19,50 +19,57 @@ status: "shipped"
 paper: "/papers/mpc_ur5e_sorting_paper.pdf"
 ---
 
-![](/images/mpc_hero.jpg)
-
-**UR5e approaching the red cube — cyan dots are the MPC's 20-step end-effector horizon, solved live.** The arm sees a red wall obstacle and an orange ceiling panel blocking the shelf. No path was pre-programmed; the receding horizon finds the route at every timestep.
-
-## Live in MuJoCo
+## On Real Hardware
 
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; align-items: start; margin: 1.5rem 0;">
-  <img src="/images/mpc_motion.gif" alt="Full pick-and-sort simulation — UR5e sorting cubes with MPC trajectory overlay" style="margin: 0; border-radius: 0.5rem;" />
-  <div style="font-size: 0.95rem; line-height: 1.6;">
-    The full loop: three colored cubes on the table, a wall obstacle blocking the shelf, a ceiling panel above. The arm picks each cube, lifts through the gap, arcs to the shelf, and releases. Cyan dots show where the MPC predicts the end-effector will be over the next 20 steps — recalculated every control tick via CasADi/IPOPT in ~30ms.
+  <img src="/images/mpc_hardware.gif" alt="UR5e sorting colored cubes on real hardware using MPC" style="margin: 0; border-radius: 0.5rem;" />
+  <div style="font-size: 0.95rem; line-height: 1.7;">
+    The full sorting loop running on a physical UR5e: the arm detects red and black cubes via a depth camera, plans a collision-free trajectory with a receding-horizon CasADi/IPOPT solver, grasps each cube with the Robotiq 2F-85 gripper, and places it in the correct labeled zone — no hand-coded waypoints, replanning every control tick.
   </div>
 </div>
 
-## Around the Obstacle
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/mpc_hw_overview.jpg" alt="Hardware setup — UR5e with cubes and sorting zones" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_hw_sorted.jpg" alt="Red cubes successfully sorted into the red zone" style="margin: 0; border-radius: 0.5rem;" />
+</div>
+
+Red cubes in the red zone, black cubes in the black zone — fully autonomous. The arm reclassifies each cube's color from the camera feed and routes it to the correct drop location while avoiding the obstacle wall separating the pickup region from the placement region.
+
+## MuJoCo Simulation
 
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
-  <img src="/images/mpc_nav.jpg" alt="MPC planning arc around the red wall obstacle — yellow trajectory horizon" style="margin: 0; border-radius: 0.5rem;" />
-  <img src="/images/mpc_grasp.jpg" alt="Arm grasping the red cube — gripper closed, cube locked" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_sim_pt1.png" alt="MuJoCo sim — arm approaching cubes" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_sim_pt2.png" alt="MuJoCo sim — arm grasping cube" style="margin: 0; border-radius: 0.5rem;" />
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/mpc_sim_pt3.png" alt="MuJoCo sim — arm carrying cube over obstacle" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_sim_pt4.png" alt="MuJoCo sim — cube placed in drop zone" style="margin: 0; border-radius: 0.5rem;" />
 </div>
 
-The yellow trajectory (arm carrying the cube) shows the MPC solution arcing over the wall obstacle — the optimizer routes through the gap between the wall and ceiling without any hand-coded waypoints. Obstacle avoidance is a soft constraint on the IPOPT NLP: sphere proxies on the end-effector get penalized for violating clearance.
+The MuJoCo environment matches the real lab setup: colored drop zones, an obstacle wall, and a Robotiq gripper. The MPC horizon visualizes the predicted end-effector path (cyan markers) in real time. Each frame of the 20-step horizon is solved live via IPOPT in ~10 ms.
 
-## All Four Sorting Runs
+## Trajectory Analysis
 
 <div style="margin: 1.5rem 0;">
-  <img src="/images/mpc_trajectories.png" alt="All four cube-sorting trajectories overlaid — red and black cubes, obstacle box visible" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/mpc_trajectories.png" alt="Top-down workspace view and side elevation showing obstacle clearance" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
 </div>
 
-Four sorting runs overlaid in one view. Red and black cubes each follow distinct arcs around the same obstacle. The semi-transparent blue box is the obstacle AABB used by the MPC solver. Diamond markers show cube pickup locations; stars show drop targets.
+Left: top-down view of four sorting runs — trajectories route around the obstacle wall to reach the drop zones. Right: side elevation showing the arm lifting over the wall (z = 0.5 m) without any pre-programmed height constraint.
 
 ## Convergence & Safety
 
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
-  <img src="/images/mpc_convergence.png" alt="End-effector position error — converges within 3 cm tolerance" style="margin: 0; border-radius: 0.5rem;" />
-  <img src="/images/mpc_clearance.png" alt="Obstacle clearance margin — stays above safety threshold throughout" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_convergence.png" alt="Position error converges within 3 cm tolerance" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_clearance.png" alt="Obstacle clearance stays above safety threshold" style="margin: 0; border-radius: 0.5rem;" />
 </div>
 
-Left: position error converges below the 3 cm tolerance by the end of the approach phase. The green fill shows where error is safely below threshold. Right: obstacle clearance stays above zero throughout — the closest the end-effector gets is 7.9 cm from the wall, well above the 2 cm safety margin enforced by the NLP.
+Position error converges below 3 cm by end of approach. Obstacle clearance stays above zero throughout — minimum 7.9 cm from the wall, well above the 2 cm NLP safety margin.
 
 ## Joint Profiles & Solve Time
 
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
-  <img src="/images/mpc_joints.png" alt="All 6 joint angle profiles — smooth trajectories within limits" style="margin: 0; border-radius: 0.5rem;" />
-  <img src="/images/mpc_solve_time.png" alt="MPC solve time per iteration — steady ~10ms after warm-start" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_joints.png" alt="All 6 joint profiles — smooth within limits" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_solve_time.png" alt="Solve time: ~38ms warm-start, ~10ms steady state" style="margin: 0; border-radius: 0.5rem;" />
 </div>
 
-Left: all six joint profiles are smooth — the receding horizon doesn't produce jerky commands even while replanning at every step. Dotted gray lines mark joint limits; no joint comes close. Right: the first solve is slower (~38 ms, warm-start cold-start spike), then steady at ~10 ms — fast enough for real-time control at the 50 ms timestep.
+Joint profiles are smooth across all six DOF — the receding horizon doesn't produce jerky commands even replanning every tick. Solve time drops from 38 ms (cold warm-start) to a steady ~10 ms, well within the 50 ms control timestep.
