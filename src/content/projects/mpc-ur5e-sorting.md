@@ -41,20 +41,28 @@ paper: "/papers/mpc_ur5e_sorting_paper.pdf"
 
 The yellow trajectory (arm carrying the cube) shows the MPC solution arcing over the wall obstacle — the optimizer routes through the gap between the wall and ceiling without any hand-coded waypoints. Obstacle avoidance is a soft constraint on the IPOPT NLP: sphere proxies on the end-effector get penalized for violating clearance.
 
-## Paper Results
+## All Four Sorting Runs
 
-<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
-  <img src="/images/mpc_trajectories.jpg" alt="End-effector 3D trajectories — 4 cube sorting runs" style="margin: 0; border-radius: 0.5rem;" />
-  <img src="/images/mpc_convergence.jpg" alt="End-effector position error — all runs converge within 3cm tolerance" style="margin: 0; border-radius: 0.5rem;" />
+<div style="margin: 1.5rem 0;">
+  <img src="/images/mpc_trajectories.png" alt="All four cube-sorting trajectories overlaid — red and black cubes, obstacle box visible" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
 </div>
 
-Four cube-sorting runs. Each trajectory naturally arcs around the obstacle — the optimizer finds the clearance geometry without explicit path planning. All runs converge within the 3cm tolerance by ~17–19s.
+Four sorting runs overlaid in one view. Red and black cubes each follow distinct arcs around the same obstacle. The semi-transparent blue box is the obstacle AABB used by the MPC solver. Diamond markers show cube pickup locations; stars show drop targets.
 
-## Safety Constraints
+## Convergence & Safety
 
 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
-  <img src="/images/mpc_clearance.jpg" alt="Obstacle clearance margin over time — stays above safety threshold" style="margin: 0; border-radius: 0.5rem;" />
-  <img src="/images/mpc_joints.jpg" alt="Joint angle profiles — all 6 DOF within limits" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_convergence.png" alt="End-effector position error — converges within 3 cm tolerance" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_clearance.png" alt="Obstacle clearance margin — stays above safety threshold throughout" style="margin: 0; border-radius: 0.5rem;" />
 </div>
 
-Clearance margin stays above the safety threshold throughout. Joint profiles are smooth — the receding horizon doesn't produce jerky commands even while replanning at every step. The NLP uses analytical DH-parameter FK (no autodiff), keeping Jacobian evaluations fast enough for real-time control.
+Left: position error converges below the 3 cm tolerance by the end of the approach phase. The green fill shows where error is safely below threshold. Right: obstacle clearance stays above zero throughout — the closest the end-effector gets is 7.9 cm from the wall, well above the 2 cm safety margin enforced by the NLP.
+
+## Joint Profiles & Solve Time
+
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/mpc_joints.png" alt="All 6 joint angle profiles — smooth trajectories within limits" style="margin: 0; border-radius: 0.5rem;" />
+  <img src="/images/mpc_solve_time.png" alt="MPC solve time per iteration — steady ~10ms after warm-start" style="margin: 0; border-radius: 0.5rem;" />
+</div>
+
+Left: all six joint profiles are smooth — the receding horizon doesn't produce jerky commands even while replanning at every step. Dotted gray lines mark joint limits; no joint comes close. Right: the first solve is slower (~38 ms, warm-start cold-start spike), then steady at ~10 ms — fast enough for real-time control at the 50 ms timestep.
