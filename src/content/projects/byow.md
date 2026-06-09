@@ -23,7 +23,7 @@ status: "shipped"
   <img src="/images/byow-world-explore.png" alt="Multi-room structure" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
 </div>
 
-Infinite deterministic tile worlds from a single 64-bit seed. The same seed produces the same world on any machine — room placement, hallway routing, and player spawn are all seeded from a single `java.util.Random`. Three distinct tile themes applied to the same underlying grid.
+Infinite deterministic tile worlds from a single 64-bit seed. The same seed produces the same world on any machine; room placement, hallway routing, and player spawn are all seeded from a single `java.util.Random`. Three distinct tile themes applied to the same underlying grid.
 
 ## Room Placement
 
@@ -39,7 +39,7 @@ if (!intersectsExistingRooms(this.rooms, room.getBounds())) {
 }
 ```
 
-Rooms that intersect any existing room are discarded. The loop runs until `maxNumRooms` non-overlapping rooms are placed — a number itself randomly drawn between 5 and 45 per seed. Boundary clipping handles rooms that would otherwise overflow the 80×30 grid.
+Rooms that intersect any existing room are discarded. The loop runs until `maxNumRooms` non-overlapping rooms are placed, a number itself randomly drawn between 5 and 45 per seed. Boundary clipping handles rooms that would otherwise overflow the 80×30 grid.
 
 ## Hallway Routing
 
@@ -71,12 +71,12 @@ public TETile[][] getConsTiles(Point p) {
 }
 ```
 
-Only tiles whose `(i, j)` coordinates fall inside the ellipse are copied to the render buffer — everything else stays dark. This is a visibility *mask*, not shadow casting: it doesn't account for walls occluding distant tiles, but it creates effective exploration tension because you can't see around corners into adjacent rooms.
+Only tiles whose `(i, j)` coordinates fall inside the ellipse are copied to the render buffer; everything else stays dark. This is a visibility *mask*, not shadow casting: it doesn't account for walls occluding distant tiles, but it creates effective exploration tension because you can't see around corners into adjacent rooms.
 
 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin: 1.5rem 0;">
   <img src="/images/byow-los-white.png" alt="Full visibility" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
-  <img src="/images/byow-los-gold.png" alt="Line-of-sight — golden theme" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
-  <img src="/images/byow-los-pink.png" alt="Line-of-sight — pink theme" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/byow-los-gold.png" alt="Line-of-sight, golden theme" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/byow-los-pink.png" alt="Line-of-sight, pink theme" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
 </div>
 
 ## Save and Load
@@ -89,7 +89,7 @@ playerX playerY
 WWDDSSWWMWWASD...
 ```
 
-On load, the engine reconstructs the world from the seed (deterministic — same output every time), places the player at the saved position, then feeds the recorded input string back through the game loop. The result is bit-exact state recovery without serializing the tile array.
+On load, the engine reconstructs the world from the seed (deterministic, same output every time), places the player at the saved position, then feeds the recorded input string back through the game loop. The result is bit-exact state recovery without serializing the tile array.
 
 The tradeoff: recording length grows with play time. A multi-hour session would produce a correspondingly long replay string, making load time O(actions) rather than O(1). For this project scope that's acceptable.
 

@@ -1,6 +1,6 @@
 ---
 title: "Auto-Stitching Photo Mosaics"
-summary: "Building a panorama pipeline from scratch — Harris corner detection, Adaptive Non-Maximal Suppression, feature matching, RANSAC for homography estimation, and Laplacian-pyramid blending."
+summary: "Building a panorama pipeline from scratch: Harris corner detection, Adaptive Non-Maximal Suppression, feature matching, RANSAC for homography estimation, and Laplacian-pyramid blending."
 date: 2024-10-28
 category: "Computer Vision"
 tech:
@@ -18,7 +18,7 @@ status: "shipped"
 ---
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1.5rem 0;">
-  <img src="/images/cs180_p4_mosaic_ladder.jpg" alt="Ladder scene panorama — seamlessly stitched from two overlapping photos" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/cs180_p4_mosaic_ladder.jpg" alt="Ladder scene panorama, seamlessly stitched from two overlapping photos" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
   <img src="/images/cs180_p4_mosaic_outside.jpg" alt="Exterior courtyard panorama" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
 </div>
 
@@ -28,7 +28,7 @@ Taking two overlapping photos and producing a seamless panorama is a cascade of 
   <span style="color: var(--color-accent);">detection</span><span>Harris corners + Adaptive Non-Maximal Suppression (ANMS)</span>
   <span style="color: var(--color-accent);">descriptors</span><span>40×40 patches sampled at 8×8, bias/gain normalized</span>
   <span style="color: var(--color-accent);">matching</span><span>Nearest-neighbor + Lowe's ratio test (threshold 0.8)</span>
-  <span style="color: var(--color-accent);">robust fit</span><span>RANSAC — 4-point DLT, 1000 iterations, 2px inlier threshold</span>
+  <span style="color: var(--color-accent);">robust fit</span><span>RANSAC: 4-point DLT, 1000 iterations, 2px inlier threshold</span>
   <span style="color: var(--color-accent);">blending</span><span>Laplacian pyramid with linear ramp mask over overlap region</span>
 </div>
 
@@ -44,17 +44,17 @@ $$R = \det(M) - k\,(\text{tr}\,M)^2, \qquad M = \begin{bmatrix} \sum I_x^2 & \su
 
 where $I_x, I_y$ are image gradients computed over the window. $R > 0$ indicates a corner (both eigenvalues large), $R < 0$ an edge (one large eigenvalue), $|R| \approx 0$ a flat region.
 
-Raw Harris over-detects — textured regions produce dense clusters of high-$R$ points while sparse areas get nothing. **ANMS** fixes this by enforcing spatial spread: a corner at position $\mathbf{x}_i$ is suppressed unless it is the strongest corner within radius $r_i$, where $r_i$ is its suppression radius. Keeping the top-$N$ corners by $r_i$ yields a spatially uniform distribution, which matters for matching: uniformly distributed features constrain the homography better than clustered ones.
+Raw Harris over-detects: textured regions produce dense clusters of high-$R$ points while sparse areas get nothing. **ANMS** fixes this by enforcing spatial spread: a corner at position $\mathbf{x}_i$ is suppressed unless it is the strongest corner within radius $r_i$, where $r_i$ is its suppression radius. Keeping the top-$N$ corners by $r_i$ yields a spatially uniform distribution, which matters for matching: uniformly distributed features constrain the homography better than clustered ones.
 
 ## Feature Descriptors and Matching
 
-Each surviving corner gets a descriptor: sample a 40×40 patch around it, downsample to 8×8, normalize to zero mean and unit variance (bias/gain normalization). Normalization makes descriptors invariant to local brightness and contrast changes — the same surface lit differently will match.
+Each surviving corner gets a descriptor: sample a 40×40 patch around it, downsample to 8×8, normalize to zero mean and unit variance (bias/gain normalization). Normalization makes descriptors invariant to local brightness and contrast changes; the same surface lit differently will match.
 
 Matching: for each descriptor in image A, find the two nearest neighbors in image B (by SSD). Accept the match only if:
 
 $$\frac{d_1}{d_2} < 0.8$$
 
-Lowe's ratio test rejects ambiguous matches — if the best match is nearly as good as the second-best, the feature is probably in a repeated-texture region and the match is unreliable. This eliminates most false positives cheaply, before RANSAC.
+Lowe's ratio test rejects ambiguous matches: if the best match is nearly as good as the second-best, the feature is probably in a repeated-texture region and the match is unreliable. This eliminates most false positives cheaply, before RANSAC.
 
 ## RANSAC Homography Estimation
 
@@ -78,19 +78,19 @@ With 4 points: 8×9 system, null space gives the 9 entries of $H$ (up to scale).
 
 ## Warping and Blending
 
-With $H$ in hand, warp image A into image B's coordinate frame using inverse warping — for each output pixel, apply $H^{-1}$ to find the source coordinate, then bilinear-interpolate. Forward warping would leave holes; inverse warping doesn't.
+With $H$ in hand, warp image A into image B's coordinate frame using inverse warping. For each output pixel, apply $H^{-1}$ to find the source coordinate, then bilinear-interpolate. Forward warping would leave holes; inverse warping doesn't.
 
 The overlap region is blended with a Laplacian pyramid: construct the pyramid for each warped image, blend each level using a mask that ramps linearly across the overlap, reconstruct. This makes the seam invisible because color transitions happen gradually at low frequencies while sharp detail is composited cleanly at high frequencies.
 
 ## Results
 
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1.5rem 0;">
-  <img src="/images/cs180_p4_mosaic_pcb.jpg" alt="PCB close-up panorama — fine detail aligned across two views" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/cs180_p4_mosaic_pcb.jpg" alt="PCB close-up panorama, fine detail aligned across two views" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
   <img src="/images/cs180_p4_hero.jpg" alt="Hero panorama result" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
 </div>
 
-The pipeline succeeds across very different scene types — architectural geometry (ladder/exterior), fine electronic detail (PCB), and indoor scenes. Failure modes: scenes with insufficient overlap, scenes where all features lie in a plane (degenerate homography), and scenes with moving objects in the overlap region (RANSAC can't recover a consistent $H$ when the scene itself changes between frames).
+The pipeline succeeds across very different scene types: architectural geometry (ladder/exterior), fine electronic detail (PCB), and indoor scenes. Failure modes: scenes with insufficient overlap, scenes where all features lie in a plane (degenerate homography), and scenes with moving objects in the overlap region (RANSAC can't recover a consistent $H$ when the scene itself changes between frames).
 
 ## Why the Pipeline Composes
 
-Each stage absorbs noise from the previous. Harris over-detects → ANMS filters spatially. Matching over-connects → ratio test filters ambiguous pairs. Ratio test leaves outliers → RANSAC filters geometrically inconsistent ones. The pipeline is deliberately redundant: classical CV survives individual component failures because each stage imposes an independent constraint, and errors have to defeat all of them simultaneously.
+Each stage absorbs noise from the previous. Harris over-detects, so ANMS filters spatially. Matching over-connects, so the ratio test filters ambiguous pairs. The ratio test leaves outliers, so RANSAC filters geometrically inconsistent ones. The pipeline is deliberately redundant: classical CV survives individual component failures because each stage imposes an independent constraint, and errors have to defeat all of them simultaneously.

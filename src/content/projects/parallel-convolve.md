@@ -22,12 +22,12 @@ heroImage: "/images/conv_simd_register.png"
   <img src="/images/conv-bench.png" alt="Wall time and speedup vs image size" style="margin: 0; border-radius: 0.5rem; width: 100%; background: white; padding: 0.5rem;" />
 </div>
 
-Naive 2D convolution is O(H × W × Kh × Kw) with poor cache behavior — every output pixel re-reads overlapping input windows, and the scalar inner loop uses none of the CPU's 256-bit vector units. Starting from a `perf stat` baseline showing 85% cache miss rate and <5% vector utilization, three optimization layers brought 1024×1024 throughput from 1479 ms to 87 ms.
+Naive 2D convolution is O(H × W × Kh × Kw) with poor cache behavior: every output pixel re-reads overlapping input windows, and the scalar inner loop uses none of the CPU's 256-bit vector units. Starting from a `perf stat` baseline showing 85% cache miss rate and <5% vector utilization, three optimization layers brought 1024×1024 throughput from 1479 ms to 87 ms.
 
 <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-fg-muted); display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1.5rem; margin: 1.5rem 0;">
   <span style="color: var(--color-accent);">vectorization</span><span>8-wide int32 SIMD with AVX2 (_mm256_mullo_epi32)</span>
   <span style="color: var(--color-accent);">parallelization</span><span>OpenMP collapse(2) over output tiles</span>
-  <span style="color: var(--color-accent);">tiling</span><span>64×64 blocks — fits input + kernel + output in 32 KB L1</span>
+  <span style="color: var(--color-accent);">tiling</span><span>64×64 blocks, fits input + kernel + output in 32 KB L1</span>
   <span style="color: var(--color-accent);">result</span><span>17.1× speedup at 1024×1024, bit-exact vs reference</span>
 </div>
 
@@ -52,7 +52,7 @@ Image widths that aren't multiples of 8 require a scalar cleanup loop for the re
 
 ## Cache-Friendly Tiling
 
-Processing the full image row by row causes repeated cold cache misses on the kernel weights. 64×64 output tiles bring the working set (input patch + kernel + output tile) under 32 KB — fitting in L1 cache. Each tile is processed to completion before moving to the next, giving good temporal locality.
+Processing the full image row by row causes repeated cold cache misses on the kernel weights. 64×64 output tiles bring the working set (input patch + kernel + output tile) under 32 KB, fitting in L1 cache. Each tile is processed to completion before moving to the next, giving good temporal locality.
 
 OpenMP parallelizes across tiles with `collapse(2)`:
 
@@ -65,7 +65,7 @@ for (int ti = 0; ti < n_tiles_y; ti++) {
 }
 ```
 
-`collapse(2)` creates one work unit per tile rather than per row — typically 256+ independent tasks on a 1024×1024 image, enough for dynamic scheduling to load-balance the edge tiles cleanly.
+`collapse(2)` creates one work unit per tile rather than per row, typically 256+ independent tasks on a 1024×1024 image, enough for dynamic scheduling to load-balance the edge tiles cleanly.
 
 ## Speedup by Stage
 
@@ -73,7 +73,7 @@ for (int ti = 0; ti < n_tiles_y; ti++) {
   <img src="/images/conv_speedup_stages.png" alt="Speedup by optimization stage: naive 1×, SIMD 8.2×, OpenMP 7.8×, combined 17.1×" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
 </div>
 
-SIMD alone gives 8.2× — slightly above the theoretical 8× because pre-flipping the kernel (a 180° rotation done once at init rather than per-output-pixel) eliminates index arithmetic from the inner loop. OpenMP alone gives 7.8× on 8 cores — near-linear, confirming the workload is embarrassingly parallel. Combined, they give 17.1× rather than the 65.6× theoretical product, because at high thread counts the bottleneck shifts from compute to memory bandwidth.
+SIMD alone gives 8.2×, slightly above the theoretical 8× because pre-flipping the kernel (a 180° rotation done once at init rather than per-output-pixel) eliminates index arithmetic from the inner loop. OpenMP alone gives 7.8× on 8 cores, near-linear, confirming the workload is embarrassingly parallel. Combined, they give 17.1× rather than the 65.6× theoretical product, because at high thread counts the bottleneck shifts from compute to memory bandwidth.
 
 ## Input/Output
 
@@ -86,7 +86,7 @@ Testing on synthetic ring + noise input with a 5×5 edge-detection kernel and a 
 ## Profiling Notes
 
 Two "obvious" optimizations that made no difference:
-- **Manual prefetching** (`__builtin_prefetch`) — hardware prefetchers already handle the regular access pattern.
-- **4× loop unrolling** — GCC's auto-unroll at -O2 was already doing it; explicit unrolling added 3% for 3×3 kernels and nothing for larger ones.
+- **Manual prefetching** (`__builtin_prefetch`): hardware prefetchers already handle the regular access pattern.
+- **4× loop unrolling**: GCC's auto-unroll at -O2 was already doing it; explicit unrolling added 3% for 3×3 kernels and nothing for larger ones.
 
 The lesson: trust `perf stat` over intuition. IPC actually dropped after optimization (fewer, more complex SIMD instructions), but total throughput was the metric that mattered.
