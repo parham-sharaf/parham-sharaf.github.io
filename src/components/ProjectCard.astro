@@ -35,7 +35,7 @@ const mins = readingTime(project);
       {status !== 'shipped' && (
         <span
           class="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wider backdrop-blur"
-          style={`font-family: var(--font-mono); background: rgba(10,10,10,0.72); color: var(--color-accent); border: 1px solid var(--color-border-strong);`}
+          style={`font-family: var(--font-mono); background: rgba(var(--color-bg-rgb), 0.78); color: var(--color-accent); border: 1px solid var(--color-border-strong);`}
         >
           {status}
         </span>
@@ -80,8 +80,8 @@ const mins = readingTime(project);
   .cover-fade {
     background: linear-gradient(
       180deg,
-      rgba(10, 10, 10, 0) 55%,
-      rgba(10, 10, 10, 0.35) 100%
+      rgba(var(--color-bg-rgb), 0) 55%,
+      rgba(var(--color-bg-rgb), 0.35) 100%
     );
   }
   .project-card:hover {

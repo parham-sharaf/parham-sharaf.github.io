@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import 'katex/dist/katex.min.css';
 import Nav from '../components/Nav.astro';
 import Footer from '../components/Footer.astro';
 import SearchPalette from '../components/SearchPalette.astro';
@@ -13,12 +14,15 @@ interface Props {
   image?: string;
   /** "wide" (default) or "prose" — prose narrows the main content for readability */
   width?: 'wide' | 'prose';
+  /** Absolute URL of an image to preload (LCP hint) */
+  preloadImage?: string;
 }
 
-const { title, description, image, width = 'wide' } = Astro.props;
+const { title, description, image, width = 'wide', preloadImage } = Astro.props;
 const pageTitle = title ? `${title} — ${site.name}` : site.title;
 const pageDesc = description ?? site.description;
 const ogImage = new URL(image ?? '/og-default.png', Astro.site ?? Astro.url.origin).toString();
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin).toString();
 const containerClass = width === 'prose' ? 'container-prose' : 'container-page';
 ---
 
@@ -29,12 +33,9 @@ const containerClass = width === 'prose' ? 'container-prose' : 'container-page';
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
-    />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="canonical" href={canonicalUrl} />
+    {preloadImage && <link rel="preload" as="image" href={preloadImage} fetchpriority="high" />}
     <title>{pageTitle}</title>
     <meta name="description" content={pageDesc} />
     <meta property="og:title" content={pageTitle} />
@@ -57,8 +58,9 @@ const containerClass = width === 'prose' ? 'container-prose' : 'container-page';
     </script>
   </head>
   <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
     <Nav />
-    <main class={`${containerClass} pt-24 pb-24`}>
+    <main id="main-content" class={`${containerClass} pt-24 pb-24`}>
       <slot />
     </main>
     <Footer />

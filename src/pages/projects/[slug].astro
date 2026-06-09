@@ -74,7 +74,7 @@ const showToc = toc.length >= 3;
             <a
               href={l.href}
               target="_blank"
-              rel="noopener"
+              rel="noopener noreferrer"
               class="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs transition-colors hover:bg-[var(--color-surface)]"
               style="border-color: var(--color-border-strong); font-family: var(--font-mono);"
             >
@@ -113,9 +113,6 @@ const showToc = toc.length >= 3;
       </div>
     )}
 
-    <!-- Prev / Next navigation -->
-    <Lightbox />
-
     {related.length > 0 && (
       <section class="mt-16">
         <h2 class="mb-5 text-xs font-semibold tracking-widest uppercase" style="font-family: var(--font-mono); color: var(--color-fg-dim);">
@@ -146,13 +143,14 @@ const showToc = toc.length >= 3;
       </nav>
     )}
   </article>
+  <Lightbox />
 </Base>
 
 <style>
   /* Keep article header + back-link at reading width */
   article > a,
   article > header {
-    max-width: 48rem;
+    max-width: 56rem;
     margin-left: auto;
     margin-right: auto;
   }
@@ -169,11 +167,11 @@ const showToc = toc.length >= 3;
     transition: width 60ms linear;
   }
 
-  /* TOC — only shown on xl screens (≥1280px) */
+  /* TOC — shown on xl screens (≥1280px) */
   .toc {
     position: fixed;
     top: 6rem;
-    right: max(1.5rem, calc((100vw - 48rem) / 2 - 15rem));
+    right: max(1.5rem, calc(50vw - 46rem));
     width: 14rem;
     max-height: calc(100vh - 9rem);
     overflow-y: auto;
@@ -253,9 +251,9 @@ const showToc = toc.length >= 3;
 </style>
 
 <script>
-  // scroll progress
-  const bar = document.getElementById('scroll-progress');
-  if (bar) {
+  function setupScrollProgress() {
+    const bar = document.getElementById('scroll-progress');
+    if (!bar) return;
     const onScroll = () => {
       const h = document.documentElement;
       const max = h.scrollHeight - h.clientHeight;
@@ -263,49 +261,57 @@ const showToc = toc.length >= 3;
       bar.style.width = `${pct}%`;
     };
     window.addEventListener('scroll', onScroll, { passive: true });
+    // Reset bar width on navigation away so it doesn't linger
+    document.addEventListener('astro:before-swap', () => {
+      window.removeEventListener('scroll', onScroll);
+      bar.style.width = '0%';
+    }, { once: true });
     onScroll();
   }
 
-  // highlight active TOC link via IntersectionObserver on h2s
-  const tocLinks = document.querySelectorAll<HTMLAnchorElement>('.toc-link');
-  if (tocLinks.length > 0) {
+  function setupToc() {
+    const tocLinks = document.querySelectorAll<HTMLAnchorElement>('.toc-link');
+    if (tocLinks.length === 0) return;
     const linkBySlug = new Map<string, HTMLAnchorElement>();
     tocLinks.forEach((l) => {
       const slug = l.dataset.slug;
       if (slug) linkBySlug.set(slug, l);
     });
     const headings = document.querySelectorAll<HTMLElement>('.prose-custom h2[id]');
-    if (headings.length > 0) {
-      const visible = new Set<string>();
-      const update = () => {
-        // pick topmost visible
-        let activeSlug: string | null = null;
-        let topmost = Infinity;
-        visible.forEach((slug) => {
-          const el = document.getElementById(slug);
-          if (!el) return;
-          const t = el.getBoundingClientRect().top;
-          if (t < topmost) {
-            topmost = t;
-            activeSlug = slug;
-          }
-        });
-        linkBySlug.forEach((link, slug) => {
-          link.classList.toggle('is-active', slug === activeSlug);
-        });
-      };
-      const io = new IntersectionObserver(
-        (entries) => {
-          for (const e of entries) {
-            const id = (e.target as HTMLElement).id;
-            if (e.isIntersecting) visible.add(id);
-            else visible.delete(id);
-          }
-          update();
-        },
-        { rootMargin: '-20% 0px -60% 0px', threshold: 0 },
-      );
-      headings.forEach((h) => io.observe(h));
-    }
+    if (headings.length === 0) return;
+    const visible = new Set<string>();
+    const update = () => {
+      let activeSlug: string | null = null;
+      let topmost = Infinity;
+      visible.forEach((slug) => {
+        const el = document.getElementById(slug);
+        if (!el) return;
+        const t = el.getBoundingClientRect().top;
+        if (t < topmost) { topmost = t; activeSlug = slug; }
+      });
+      linkBySlug.forEach((link, slug) => {
+        link.classList.toggle('is-active', slug === activeSlug);
+      });
+    };
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const id = (e.target as HTMLElement).id;
+          if (e.isIntersecting) visible.add(id);
+          else visible.delete(id);
+        }
+        update();
+      },
+      { rootMargin: '-20% 0px -60% 0px', threshold: 0 },
+    );
+    headings.forEach((h) => io.observe(h));
+    document.addEventListener('astro:before-swap', () => io.disconnect(), { once: true });
   }
+
+  setupScrollProgress();
+  setupToc();
+  document.addEventListener('astro:page-load', () => {
+    setupScrollProgress();
+    setupToc();
+  });
 </script>

@@ -27,6 +27,7 @@ const links = [
             <li>
               <a
                 href={l.href}
+                aria-current={isActive(l.href) ? 'page' : undefined}
                 class="rounded px-3 py-1.5 transition-colors"
                 style={
                   isActive(l.href)
@@ -78,8 +79,52 @@ const links = [
           <line x1="14.4" y1="5.6" x2="15.8" y2="4.2" />
         </svg>
       </button>
+
+      <!-- Hamburger — mobile only -->
+      <button
+        type="button"
+        class="nav-icon-btn sm:hidden"
+        aria-label="Open menu"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        data-action="menu"
+      >
+        <svg class="menu-icon-open" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
+          <line x1="3" y1="6" x2="17" y2="6" />
+          <line x1="3" y1="10" x2="17" y2="10" />
+          <line x1="3" y1="14" x2="17" y2="14" />
+        </svg>
+        <svg class="menu-icon-close hidden" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
+          <line x1="5" y1="5" x2="15" y2="15" />
+          <line x1="15" y1="5" x2="5" y2="15" />
+        </svg>
+      </button>
     </div>
   </nav>
+
+  <!-- Mobile menu -->
+  <div
+    id="mobile-menu"
+    class="mobile-menu sm:hidden"
+    aria-hidden="true"
+  >
+    <ul class="mobile-menu-list">
+      {links.map((l) => (
+        <li>
+          <a
+            href={l.href}
+            aria-current={isActive(l.href) ? 'page' : undefined}
+            class="mobile-menu-link"
+            style={isActive(l.href) ? 'color: var(--color-accent);' : ''}
+            data-action="menu-link"
+          >
+            {l.label}
+            {isActive(l.href) && <span class="mobile-active-dot" aria-hidden="true"></span>}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
 </header>
 
 <style>
@@ -150,6 +195,50 @@ const links = [
   .theme-icon-light { display: none; }
   html[data-theme='light'] .theme-icon-dark { display: none; }
   html[data-theme='light'] .theme-icon-light { display: inline; }
+
+  /* Mobile menu */
+  .mobile-menu {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    border-bottom: 1px solid transparent;
+  }
+  .mobile-menu.is-open {
+    max-height: 24rem;
+    border-bottom-color: var(--color-border);
+  }
+  .mobile-menu-list {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0 0.75rem;
+  }
+  .mobile-menu-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.5rem;
+    font-size: 0.9375rem;
+    color: var(--color-fg-muted);
+    transition: color 120ms ease, background 120ms ease;
+  }
+  .mobile-menu-link:hover {
+    color: var(--color-fg);
+    background: var(--color-surface);
+  }
+  .mobile-menu-link[aria-current='page'] {
+    color: var(--color-accent);
+  }
+  .mobile-active-dot {
+    width: 0.3rem;
+    height: 0.3rem;
+    border-radius: 9999px;
+    background: var(--color-accent);
+    margin-left: auto;
+  }
+  .menu-icon-open,
+  .menu-icon-close {
+    transition: opacity 120ms ease;
+  }
 </style>
 
 <script>
@@ -178,6 +267,37 @@ const links = [
       };
     });
 
+    // Mobile menu toggle
+    const menuBtn = document.querySelector<HTMLButtonElement>('[data-action="menu"]');
+    const mobileMenu = document.getElementById('mobile-menu');
+    const iconOpen = menuBtn?.querySelector<SVGElement>('.menu-icon-open');
+    const iconClose = menuBtn?.querySelector<SVGElement>('.menu-icon-close');
+
+    function closeMobileMenu() {
+      if (!mobileMenu || !menuBtn) return;
+      mobileMenu.classList.remove('is-open');
+      mobileMenu.setAttribute('aria-hidden', 'true');
+      menuBtn.setAttribute('aria-expanded', 'false');
+      iconOpen?.classList.remove('hidden');
+      iconClose?.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    if (menuBtn && mobileMenu) {
+      menuBtn.onclick = () => {
+        const isOpen = mobileMenu.classList.toggle('is-open');
+        mobileMenu.setAttribute('aria-hidden', String(!isOpen));
+        menuBtn.setAttribute('aria-expanded', String(isOpen));
+        iconOpen?.classList.toggle('hidden', isOpen);
+        iconClose?.classList.toggle('hidden', !isOpen);
+      };
+    }
+
+    // Close menu when a link inside it is clicked
+    document.querySelectorAll<HTMLElement>('[data-action="menu-link"]').forEach((link) => {
+      link.onclick = closeMobileMenu;
+    });
+
     // Keyboard shortcuts: g h / g p / g a / g n / g u / ? for help
     let buffer = '';
     let timer: number | null = null;
@@ -192,6 +312,7 @@ const links = [
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'Escape') { closeMobileMenu(); return; }
       // Build-up 2-key sequence
       if (e.key.length === 1) {
         buffer += e.key.toLowerCase();
@@ -201,7 +322,7 @@ const links = [
           e.preventDefault();
           const href = goto[buffer];
           buffer = '';
-          // Use ClientRouter navigation
+          closeMobileMenu();
           // @ts-ignore
           if (window.astro?.navigate) {
             // @ts-ignore

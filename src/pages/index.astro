@@ -34,7 +34,7 @@ const stats = [
 const rotatingWords = ['autonomy', 'controls', 'machine learning', 'robotics', 'computer vision'];
 ---
 
-<Base>
+<Base preloadImage="/images/parham.jpg">
   <!-- Hero -->
   <section class="hero pt-4 pb-16">
     <div class="hero-glow" aria-hidden="true"></div>
@@ -46,7 +46,7 @@ const rotatingWords = ['autonomy', 'controls', 'machine learning', 'robotics', '
           <span class="status-dot"></span>
           <span>{site.location}</span>
           <span class="mx-2" style="color: var(--color-border-strong);">·</span>
-          <span>available May 2026</span>
+          <span>open to opportunities</span>
         </p>
 
         <h1 class="hero-title reveal">
@@ -61,8 +61,7 @@ const rotatingWords = ['autonomy', 'controls', 'machine learning', 'robotics', '
 
         <p class="hero-bio reveal">
           EECS &amp; MEng at UC Berkeley. Research on safe imitation learning, multi-agent
-          coordination, and LLM reasoning. Currently shipping computer-vision pipelines at
-          <span style="color: var(--color-fg);">IntuigenceAI</span>.
+          coordination, and LLM reasoning.
         </p>
 
         <div class="mt-7 flex flex-wrap gap-3 reveal">
@@ -275,7 +274,7 @@ const rotatingWords = ['autonomy', 'controls', 'machine learning', 'robotics', '
     width: 11rem;
     height: 11rem;
     margin: 0;
-    justify-self: start;
+    justify-self: center;
     flex-shrink: 0;
   }
   @media (min-width: 768px) {
@@ -583,7 +582,7 @@ const rotatingWords = ['autonomy', 'controls', 'machine learning', 'robotics', '
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(0,0,0,0.25) 100%);
+    background: linear-gradient(180deg, rgba(var(--color-bg-rgb), 0) 60%, rgba(var(--color-bg-rgb), 0.25) 100%);
   }
   .spotlight-meta {
     padding: 1.75rem 1.75rem 2rem;
