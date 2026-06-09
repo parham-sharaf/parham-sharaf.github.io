@@ -19,7 +19,7 @@ interface Props {
 }
 
 const { title, description, image, width = 'wide', preloadImage } = Astro.props;
-const pageTitle = title ? `${title} — ${site.name}` : site.title;
+const pageTitle = title ? `${title} | ${site.name}` : site.title;
 const pageDesc = description ?? site.description;
 const ogImage = new URL(image ?? '/og-default.png', Astro.site ?? Astro.url.origin).toString();
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin).toString();
