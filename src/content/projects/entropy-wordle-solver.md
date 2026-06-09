@@ -16,179 +16,103 @@ featured: true
 status: "shipped"
 ---
 
-![](/images/wordle_pattern_distributions.png)
+<div style="margin: 1.5rem 0;">
+  <img src="/images/wordle_game_board.png" alt="Wordle game board: SOARE opener solves SCALD in 4 guesses" style="margin: 0; border-radius: 0.5rem; width: 100%; max-width: 480px; display: block; margin-left: auto; margin-right: auto;" />
+</div>
 
-**The Challenge**: Wordle gives you 6 attempts to guess a 5-letter word from 2,315 possibilities. Each guess reveals color patterns (green=correct position, yellow=wrong position, gray=not in word). How do you choose guesses to **minimize expected attempts**?
+**The Challenge**: Wordle gives you 6 attempts to guess a 5-letter word from 2,315 possibilities. Each guess reveals color patterns — green for correct position, yellow for wrong position, gray for absent. How do you choose guesses to minimize expected attempts?
 
-**The Insight**: This is fundamentally an **information extraction problem**. Each guess partitions the remaining word space based on possible responses. The optimal strategy maximizes information gained per guess — which means maximizing entropy of the pattern distribution.
+**The Insight**: This is fundamentally an information extraction problem. Each guess partitions the remaining word space based on possible responses. The optimal strategy maximizes information gained per guess — which means maximizing the entropy of the pattern distribution.
 
 <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-fg-muted); display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1.5rem; margin: 1.5rem 0;">
   <span style="color: var(--color-accent);">objective</span><span>maximize H(Y_{t,k}) = -∑ p_i log₂(p_i)</span>
-  <span style="color: var(--color-accent);">intuition</span><span>uniform patterns → maximum information gain</span>
-  <span style="color: var(--color-accent);">optimal opener</span><span>SOARE (5.89 bits from 11.18 total)</span>
+  <span style="color: var(--color-accent);">optimal opener</span><span>SOARE — 5.89 bits out of 11.18 total</span>
   <span style="color: var(--color-accent);">search space</span><span>12,972 valid guesses × 2,315 possible answers</span>
-  <span style="color: var(--color-accent);">performance</span><span>3.92 avg guesses (beats human average)</span>
+  <span style="color: var(--color-accent);">performance</span><span>3.92 avg guesses — beats human average of 4.02</span>
 </div>
 
 ## Information Theory Foundation
 
-The key mathematical insight: **minimizing expected remaining uncertainty is equivalent to maximizing information gain**, which equals the entropy of the pattern distribution.
+The key insight: **minimizing expected remaining uncertainty is equivalent to maximizing information gain**, which equals the entropy of the pattern distribution.
 
-Given current word set S and candidate guess g, the entropy is:
-```
-H(g,S) = -∑ p(pattern) × log₂(p(pattern))
-```
+Model the secret word $X$ as uniform over 2,315 possibilities. At time step $t$, after observing patterns $Y_1, \ldots, Y_{t-1}$, the posterior $X_t = X \mid Y_1, \ldots, Y_{t-1}$ remains uniform over the surviving words because patterns act as hard filters — they eliminate words but don't shift relative probabilities among survivors.
 
-Where each pattern probability is `|words matching pattern| / |S|`.
+For candidate guess $k$, let $Y_{t,k}$ be the resulting pattern. Because knowing $X_t$ makes $Y_{t,k}$ deterministic:
 
-**Why this works**: High entropy means the guess creates many equally-sized partitions of the word space. Low entropy means most words give the same pattern (wasted guess) or create one huge partition plus tiny ones (minimal elimination).
+$$I(X_t;\, Y_{t,k}) = H(Y_{t,k}) - \underbrace{H(Y_{t,k} \mid X_t)}_{=\,0} = H(Y_{t,k})$$
 
-**Example**: Guess "SOARE" against 2,315 words creates 168 distinct patterns with fairly uniform distribution (entropy ≈ 5.89 bits). Guess "QAJAQ" creates only 12 patterns with highly skewed distribution (entropy ≈ 1.89 bits).
+So minimizing $H(X_t \mid Y_{t,k})$ (leftover uncertainty) is equivalent to maximizing $H(Y_{t,k})$ (pattern entropy). Given current alphabet $S$ and guess $g$:
 
-## Algorithm Implementation
+$$H(g, S) = -\sum_p \frac{|\{w \in S : \text{pattern}(g, w) = p\}|}{|S|} \log_2 \frac{|\{w \in S : \text{pattern}(g, w) = p\}|}{|S|}$$
 
-The solver implements a **greedy optimization** at each step:
+High entropy means many equally-sized partitions — maximum elimination power. The opening word SOARE achieves $H = 5.89$ bits against 2,315 words, creating 168 distinct patterns with relatively flat distribution. Compare:
 
-```python
-def find_optimal_guess(remaining_words, candidate_guesses):
-    best_guess, max_entropy = None, 0
-    
-    for guess in candidate_guesses:
-        # Partition remaining words by pattern
-        pattern_groups = partition_by_pattern(guess, remaining_words)
-        
-        # Calculate entropy of partition sizes  
-        entropy = calculate_entropy(pattern_groups)
-        
-        if entropy > max_entropy:
-            max_entropy, best_guess = entropy, guess
-            
-    return best_guess
-```
+<div style="margin: 1.5rem 0;">
+  <img src="/images/wordle_pattern_distributions.png" alt="Pattern distributions: SOARE (5.89 bits, 168 patterns), SPEED (4.37 bits), QAJAQ (1.89 bits, 12 patterns)" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-**Computational Challenge**: Evaluating every guess against every remaining word at each step creates O(|guesses| × |words|) complexity. For early game states, this means ~12k × 2k = 24M pattern computations per turn.
-
-**Optimization Strategy**: 
-1. **Precompute pattern table**: Store all guess-answer pattern pairs offline (5-minute preprocessing)
-2. **Early stopping**: Once entropy difference <0.01 bits, accept current best
-3. **Candidate filtering**: Limit search to top 1000 most promising guesses based on letter frequency
+QAJAQ's distribution (right panel) collapses to 12 patterns — 60% of the time it gives exactly the same response, so most of its "guess budget" is wasted.
 
 ## Pattern Distribution Analysis
 
-Different guess types create fundamentally different information structures:
+<div style="margin: 1.5rem 0;">
+  <img src="/images/wordle_information_theory.png" alt="Left: remaining entropy drops from 11.18 bits to 0 over 5 game steps. Right: high-entropy vs low-entropy guess partition comparison." style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-![](/images/wordle_information_theory.png)
+The left panel shows how remaining uncertainty drops from $\log_2(2315) \approx 11.18$ bits at the start to 0 at the solution. Each optimal guess extracts roughly 2–3 bits. The right panel contrasts a high-entropy word (green bars — spread across many pattern groups) against a low-entropy word (red bars — most probability mass in a single large group). Choosing the high-entropy word always reduces the next turn's search space more.
 
-**Optimal guesses** (SOARE, CRANE, SLATE) have:
-- Many distinct patterns (150-200)
-- Relatively uniform probabilities
-- High entropy (5.5-6.0 bits)
+## Algorithm Implementation
 
-**Poor guesses** (QAJAQ, XYSTS) have:
-- Few distinct patterns (<50)  
-- Heavily skewed probabilities
-- Low entropy (<3.0 bits)
+The solver implements a greedy optimization at each step:
 
-**The intuition**: Good opening words contain common letters in diverse positions, creating many possible feedback scenarios. Bad words contain rare letters or repeated patterns, leading to predictable (low-information) responses.
+```python
+def find_best_guess(alphabet, allowed_guesses):
+    best_guess, max_entropy = None, 0
+    for guess in allowed_guesses:
+        pattern_groups = divide_alphabet(guess, alphabet)
+        H = entropy(prob_dist(pattern_groups))
+        if H > max_entropy:
+            max_entropy, best_guess = H, guess
+    return best_guess
+```
+
+**Computational cost**: evaluating every candidate against every remaining word is O(|guesses| × |words|) per turn — up to 12k × 2k = 24M pattern lookups. The main optimization is precomputing the full pattern table offline (5 min, ~300MB), reducing each in-game lookup to a dictionary read.
+
+One non-obvious correctness requirement: the pattern computation must handle repeated letters with the right priority. Green (exact match) always takes precedence. Among yellow matches, earlier positions in the guess win, and each letter in the answer can only be claimed once:
+
+<div style="margin: 1.5rem 0;">
+  <img src="/images/wordle_pattern_rules.png" alt="Pattern priority rule: guessing THREE against ABIDE — position 5 is green (E match), so position 4 cannot also claim the E as yellow." style="margin: 0; border-radius: 0.5rem; width: 100%; max-width: 540px; display: block; margin-left: auto; margin-right: auto; background: white; padding: 0.5rem;" />
+</div>
+
+Guessing THREE against ABIDE returns `(0,0,0,0,2)` — not `(0,0,0,1,2)` — because the green E at position 5 consumes the only E in the answer, so position 4 gets no yellow match. This priority rule must be exact; a wrong implementation produces subtly wrong remaining-alphabet filtering that compounds across turns.
 
 ## Advanced Optimizations
 
-Several sophisticated optimizations improve performance:
+**Opening book**: the first guess is always computed against the full 2,315-word set. Since this is constant, precompute it once. SOARE is optimal by 0.02 bits over CRANE and 0.02 bits over SLATE.
 
-### **1. Opening Book**
-Since the first move is always from the full 2,315-word set, precompute the optimal opener rather than recalculating each game. Analysis shows "SOARE" is optimal, beating "CRANE" by 0.02 bits.
+**Endgame strategy switch**: when ≤3 words remain, entropy maximization is wrong. Guessing a non-answer like CAMEL perfectly disambiguates two candidates (price/pride) but costs a turn even after you know the answer. Instead, limit candidates to the remaining alphabet — each guess has a nonzero chance of immediately winning, giving expected 1.5 guesses vs 2.
 
-### **2. Endgame Strategy Switch**
-When ≤3 words remain, switch from entropy maximization to **expected guesses minimization**. With small word sets, it's often better to guess a possible answer (50% chance of immediate win) than an optimal entropy word.
+**Warm cache**: the precomputed pattern table (`pattern_table[guess][answer]`) reduces each pattern evaluation from character-level computation to O(1) lookup. This is the dominant speedup — early game calls evaluate ~12k × 2k entries, so the table turns 24M string ops into 24M dict lookups.
 
-### **3. Dynamic Candidate Pruning**
-As word set shrinks, adaptively reduce the candidate guess set. Large sets benefit from exploring obscure high-entropy words; small sets should focus on likely answers.
+## Performance Analysis
 
-## Performance Analysis & Benchmarking
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1.5rem 0; align-items: start;">
+  <img src="/images/wordle_performance_histogram.png" alt="Histogram: 3.92 average guesses over 300 games — 29 solved in 3, 43 in 4, 8 required 6" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/wordle_strategy_comparison.png" alt="Strategy comparison: Entropy (3.92) beats Minimax (4.1), Frequency-Based (4.8), and Human Average (4.02)" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-![](/images/performance-comparisons.png)
+Over 300 sampled games: 85% solved in ≤4 guesses, 8 required 6. The few near-failures involve word families with overlapping patterns — BATCH/WATCH/MATCH all produce similar feedback against typical openers, forcing late disambiguation.
 
-Comprehensive analysis shows the entropy approach significantly outperforming alternative strategies:
+The strategy comparison (right) shows why entropy outperforms alternatives. Frequency-based (pick words with common letters) misses the joint distribution: a word like ESSES has common letters but almost no partitioning power. Minimax (minimize worst case) is conservative — it avoids bad luck at the cost of average performance. Entropy directly optimizes the quantity that drives average guesses down.
 
-![](/images/wordle_performance_histogram.png)
+**Failure mode analysis**: the 6-guess cases share a pattern — a "word cluster" where 4–5 words share positions 2–5 (e.g., WATCH/BATCH/MATCH/LATCH). After eliminating one per turn, 3 guesses can be exhausted on correct-but-not-winner guesses before the right one surfaces. The endgame switch helps but doesn't fully solve clusters of size >3.
 
-**Key Results**:
-- **Average**: 3.92 guesses (vs 4.02 human average)
-- **Success rate**: 100% within 6 guesses
-- **Distribution**: 85% solved in ≤4 guesses, only 3% require 6 guesses
+## Extensions
 
-**Failure Analysis**: The few 6-guess games typically involve:
-- Word families with identical letter patterns (BATCH/WATCH/MATCH)
-- Words with uncommon letter combinations that resist entropy-based elimination
-- Cases where optimal entropy words aren't valid guesses, forcing suboptimal choices
+This framework generalizes to any sequential information-gathering problem where you choose observations to minimize remaining uncertainty:
 
-### **Comparison vs Alternative Strategies**
+- **20 Questions**: pick the binary question that most evenly splits remaining hypotheses — exactly entropy maximization with binary $Y_{t,k}$
+- **Active learning**: select labeled examples to maximize information gain about model parameters
+- **Adaptive testing**: choose diagnostic tests to minimize expected number of tests to reach a diagnosis
 
-I implemented several baselines for comparison:
-
-**Random Guessing**: 7.2 average guesses (many failures)
-**Frequency-Based**: Choose words with most common letters → 4.8 average  
-**Minimax**: Minimize worst-case remaining words → 4.1 average
-**Entropy + Minimax Hybrid**: **3.85 average** (slight improvement)
-
-The entropy approach significantly outperforms simpler heuristics, validating the information-theoretic foundation.
-
-## Real-World Application Insights
-
-This project demonstrates several broader engineering principles:
-
-### **1. Mathematical Modeling**
-Transforming an intuitive game into a rigorous optimization problem using information theory. The connection between "good guesses" and "high entropy" isn't obvious but proves mathematically sound.
-
-### **2. Algorithm Analysis**
-Understanding when greedy approaches work (here: diminishing returns from look-ahead) vs when they fail. The entropy heuristic works because Wordle has strong locality properties.
-
-### **3. Performance Engineering**  
-Balancing computational cost vs solution quality. The precomputed pattern table trades memory (300MB) for 100x speedup in gameplay.
-
-### **4. Failure Mode Analysis**
-Systematic investigation of edge cases reveals algorithm limitations and suggests improvements (like the endgame strategy switch).
-
-## Code Architecture & Testing
-
-Built with clean separation of concerns:
-
-```python
-class WordleEngine:      # Game logic, pattern computation
-class EntropyOptimizer:  # Core algorithm implementation  
-class PerformanceAnalyzer: # Benchmarking and statistics
-class StrategyComparator:  # Baseline implementations
-```
-
-**Testing Strategy**: 
-- Unit tests for pattern computation edge cases (repeated letters, etc.)
-- Property-based testing for entropy calculations
-- Full game simulation across entire word corpus
-- A/B testing different optimization variants
-
-## Extensions & Future Work
-
-This framework generalizes to other **sequential information gathering** problems:
-
-**20 Questions**: Optimal question selection to minimize expected queries
-**Medical Diagnosis**: Choosing tests to maximize diagnostic information  
-**Database Query Optimization**: Selecting indices to minimize expected lookup time
-
-**Technical Improvements**:
-- **Look-ahead search**: Consider 2-step entropy optimization (computationally expensive)
-- **Adaptive word lists**: Update based on observed Wordle answer patterns
-- **Multi-objective optimization**: Balance average performance vs worst-case robustness
-
-The core lesson: **Information theory provides principled approaches to search and optimization problems** that often outperform domain-specific heuristics. Understanding entropy as a measure of "surprise" or "information content" is crucial for ML engineers working on recommendation systems, active learning, or experimental design.
-
-## Game Trace Example
-
-Here's how the algorithm performs step-by-step on a challenging word:
-
-![](/images/wordle_example_trace.png)
-
-**Turn 1**: SOARE → eliminates 2000+ words, reveals vowel positions  
-**Turn 2**: Strategic consonant placement based on remaining entropy
-**Turn 3**: Final elimination using pattern constraints → success
-
-This demonstrates how **principled information maximization** leads to efficient, systematic solving rather than lucky guessing.
+A natural extension is **look-ahead search**: instead of maximizing $H(Y_{t,k})$ at step $t$, maximize the expected information gain over two steps. This doubles the computation (evaluate all pairs of guesses) but converges closer to the true optimal policy. Empirically this would push average guesses from 3.92 toward ~3.5, trading runtime for performance.

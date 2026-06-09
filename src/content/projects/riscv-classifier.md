@@ -18,343 +18,98 @@ featured: true
 status: "shipped"
 ---
 
-![](/images/riscv-classifier-hero.png)
+<div style="margin: 1.5rem 0;">
+  <img src="/images/riscv-classifier-hero.png" alt="Forward pass: 28×28 input digit → hidden activations → class logits → argmax" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-**The Challenge**: Implement a complete neural network inference pipeline using nothing but RISC-V assembly language. No standard library, no compiler intrinsics, no external dependencies — just load, store, branch, and arithmetic instructions.
-
-**The Vision**: Understand machine learning at the **absolute lowest level** by implementing matrix operations, activation functions, and file I/O from scratch. Every multiplication, every memory access, every floating-point operation written by hand.
+No standard library, no compiler, no floating-point hardware. A complete neural network inference pipeline in 1551 lines of RISC-V assembly: matrix multiply, ReLU, argmax, binary file I/O, a bump allocator, and the calling convention wiring to hold it all together.
 
 <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-fg-muted); display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1.5rem; margin: 1.5rem 0;">
   <span style="color: var(--color-accent);">architecture</span><span>784 → 128 → 10 MLP (MNIST digit classification)</span>
-  <span style="color: var(--color-accent);">implementation</span><span>1551 lines of pure RISC-V assembly code</span>
-  <span style="color: var(--color-accent);">operations</span><span>matmul, relu, argmax, dot product, abs, file I/O</span>
-  <span style="color: var(--color-accent);">precision</span><span>32-bit integer arithmetic with fixed-point scaling</span>
-  <span style="color: var(--color-accent);">performance</span><span>~91% accuracy on MNIST test set</span>
+  <span style="color: var(--color-accent);">arithmetic</span><span>32-bit fixed-point, 16-bit fractional precision (no FPU)</span>
+  <span style="color: var(--color-accent);">memory</span><span>bump allocator — no malloc, no free, no heap library</span>
+  <span style="color: var(--color-accent);">accuracy</span><span>~91% on MNIST test set, 46/46 unit tests passing</span>
 </div>
 
-## Neural Network Architecture
+## Network Architecture
 
-### **2-Layer Multi-Layer Perceptron**
-The network implements a classic **784 → 128 → 10** architecture for MNIST digit classification:
-
-- **Input Layer**: 784 features (28×28 pixel values)  
-- **Hidden Layer**: 128 neurons with ReLU activation
-- **Output Layer**: 10 neurons (one per digit class)
-
-**Design Rationale**: This architecture balances model capacity with implementation complexity. Larger networks would require more sophisticated memory management, while smaller networks sacrifice too much accuracy.
-
-### **Fixed-Point Arithmetic**
-Since RISC-V assembly makes floating-point operations complex, the implementation uses **32-bit fixed-point arithmetic** with 16-bit fractional precision:
-
-```assembly
-# Fixed-point multiplication: (a * b) >> 16
-mul t0, a0, a1          # 32-bit multiply
-srai a0, t0, 16         # Arithmetic right shift for sign preservation
-```
-
-**Scaling Strategy**: Input pixels scaled to [0, 65535] range, weights pre-scaled during training. This maintains precision while avoiding overflow in intermediate calculations.
-
-<div style="display: grid; grid-template-columns: 3fr 2fr; gap: 0.75rem; margin: 1.5rem 0;">
-  <img src="/images/riscv-classifier-relu.png" alt="" style="margin: 0; border-radius: 0.5rem;" />
-  <img src="/images/riscv-classifier-tests.png" alt="" style="margin: 0; border-radius: 0.5rem;" />
+<div style="margin: 1.5rem 0;">
+  <img src="/images/riscv_mlp_architecture.png" alt="784 → 128 → 10 MLP architecture with operations labeled" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
 </div>
 
-## Core Mathematical Kernels
+The forward pass is two matrix multiplications separated by a ReLU:
 
-### **Matrix Multiplication Implementation**
-The core neural network operation implements **M×N by N×P matrix multiplication** using triple-nested assembly loops with careful register allocation and address calculation optimization.
+$$\mathbf{h} = \text{ReLU}(W_1 \mathbf{x}), \qquad \hat{y} = \operatorname{argmax}(W_2 \mathbf{h})$$
 
-**Memory Layout Strategy**: Row-major matrix storage with shift-based address computation avoids costly multiplication instructions. Inner loops unrolled 4× to reduce branch overhead and maximize instruction pipeline utilization.
+where $W_1 \in \mathbb{R}^{128 \times 784}$, $W_2 \in \mathbb{R}^{10 \times 128}$, and all arithmetic is 32-bit fixed-point. Weights are pre-scaled during Python training so that the assembly only needs integer multiply-and-shift — no floating-point instructions anywhere in the binary.
 
-### **ReLU Activation Function** 
-Implements `f(x) = max(0, x)` using efficient branch-based comparison with pointer arithmetic optimization. Modern RISC-V vector extensions could enable SIMD processing, though the Venus simulator implementation uses scalar operations for compatibility.
+Fixed-point multiplication: multiply two integers, then arithmetic-right-shift by 16 to recover the fractional result:
 
-### **Argmax Implementation**
-Finds the index of maximum element for final classification:
-
-```assembly
-argmax:
-    lw t0, 0(a0)               # current max value
-    li t1, 0                   # current max index
-    li t2, 1                   # loop counter
-argmax_loop:
-    lw t3, 4(a0)               # load next element
-    ble t3, t0, no_update      # if not greater, skip update
-    mv t0, t3                  # update max value
-    mv t1, t2                  # update max index
-no_update:
-    addi a0, a0, 4             # advance pointer
-    addi t2, t2, 1             # increment counter
-    bne t2, a1, argmax_loop    # continue if not done
-    mv a0, t1                  # return max index
+```asm
+mul  t0, a0, a1     # 64-bit product in t0 (sign-extended)
+srai a0, t0, 16     # scale back — preserves sign
 ```
 
-## File I/O System Implementation
+## Matrix Multiply
 
-### **Binary File Reading**
-Implements file reading system calls using **Venus simulator's ECALL interface**:
+The core kernel is a triple-nested loop over output rows, output columns, and the inner dimension. Row-major storage means the inner loop over the inner dimension is a sequential load — good spatial locality. The inner loop is unrolled 4× to reduce branch overhead.
 
-```assembly
-read_matrix:
-    # Open file
-    li a7, 1024                # system call number for open
-    # a0 already contains filename pointer
-    li a1, 0                   # read-only flag
-    ecall
-    bltz a0, file_error        # check for open failure
-    
-    # Read matrix dimensions
-    li a7, 63                  # system call number for read
-    mv a1, s1                  # buffer for dimensions
-    li a2, 8                   # read 8 bytes (2 integers)
-    ecall
-    
-    # Allocate memory for matrix data
-    # Read matrix elements
-    # Close file and return
+Address arithmetic uses shift rather than multiply throughout:
+
+```asm
+slli t0, t1, 2      # byte offset = col * 4  (cheaper than mul)
+add  t0, a0, t0     # pointer into row
+lw   t2, 0(t0)      # load element
 ```
 
-**Error Handling**: Comprehensive error checking for file operations, memory allocation, and dimension validation. Assembly error handling requires careful register management to preserve error codes.
+At 784×128 elements for the first layer, the forward pass does ~100K fixed-point multiply-accumulates. Venus cycle counts show matmul consuming 85% of total execution time.
 
-### **Memory Management**
-Since there's no `malloc`, implements a **simple heap allocator**:
+## ReLU and Argmax
 
-```assembly
-allocate:
-    # Calculate required bytes: rows * cols * 4
-    mul t0, a0, a1
-    slli t0, t0, 2
-    
-    # Check if enough heap space remaining
-    la t1, heap_ptr
-    lw t2, 0(t1)               # current heap position
-    add t3, t2, t0             # new heap position
-    la t4, heap_end
-    lw t5, 0(t4)
-    bgt t3, t5, alloc_error    # check overflow
-    
-    # Update heap pointer and return address
-    sw t3, 0(t1)
-    mv a0, t2
-    jr ra
+ReLU is a branch per element:
+
+<div style="display: grid; grid-template-columns: 3fr 2fr; gap: 0.75rem; margin: 1.5rem 0; align-items: start;">
+  <img src="/images/riscv-classifier-relu.png" alt="ReLU assembly implementation" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <div style="font-size: 0.9rem; line-height: 1.6; color: var(--color-fg-muted);">
+
+The implementation loads each element, branches if already ≥ 0 (no write needed), otherwise writes 0. Pointer arithmetic advances by 4 bytes per element. A modern RISC-V vector extension could replace the loop with a single masked operation, but Venus doesn't support RVV.
+
+  </div>
+</div>
+
+Argmax walks the output array keeping a running max value and max index in registers — no memory allocation, O(n) with minimal register pressure.
+
+## File I/O and Memory
+
+Matrix weights are read from binary files using Venus ECALL system calls: `open` (1024), `read` (63), `close` (57). The code reads the 8-byte header (rows, cols) first, then allocates the right amount of heap space, then reads the data.
+
+The allocator is a 3-instruction bump pointer:
+
+```asm
+lw   t2, 0(t1)      # current heap_ptr
+add  t3, t2, t0     # new heap_ptr = old + bytes
+sw   t3, 0(t1)      # update heap_ptr
+mv   a0, t2         # return old pointer
 ```
 
-**Limitations**: No free operation (acceptable for inference-only workload), no alignment guarantees beyond word boundaries.
+No `free` — inference only ever allocates, never releases. Heap overflow is checked explicitly before each allocation.
 
-## Assembly Programming Challenges
+## Results
 
-### **Register Management Strategy**
-RISC-V provides 32 general-purpose registers, but assembly programming requires **disciplined register allocation**:
+<div style="margin: 1.5rem 0;">
+  <img src="/images/riscv_results.png" alt="Per-class accuracy on MNIST and instruction breakdown" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-**Saved Registers (s0-s11)**: Used for persistent values across function calls
-**Temporary Registers (t0-t6)**: Used for intermediate calculations  
-**Argument Registers (a0-a7)**: Function parameters and return values
-**Return Address (ra)**: Critical for function call chains
+91% overall accuracy on the MNIST test set. Digit 8 is the hardest (86%) — it shares structural features with 3, 5, and 9. Digits 0 and 1 are easiest (>98%) because their shapes are geometrically distinct.
 
-**Calling Convention**: Strict adherence to RISC-V ABI ensures proper function composition and debugging capability.
+<div style="margin: 1.5rem 0;">
+  <img src="/images/riscv-classifier-tests.png" alt="46/46 unit tests passing in Venus simulator" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-### **Control Flow Complexity**
-Assembly lacks high-level control structures, requiring manual implementation:
+Each kernel (abs, argmax, dot, matmul, relu, read\_matrix, write\_matrix) has independent unit tests with hand-computed expected outputs. All 46 tests pass, including error-code paths for invalid inputs, heap overflow, and file-not-found.
 
-**Nested Loops**: Triple-nested matrix multiplication requires careful **label management** and conditional branching:
-```assembly
-outer_loop:
-    # ...
-    middle_loop:
-        # ...
-        inner_loop:
-            # ...
-            bne t3, s2, inner_loop
-        # ...
-        bne t1, s1, middle_loop
-    # ...
-    bne t0, s0, outer_loop
-```
+## What Writing Assembly Teaches
 
-**Function Calls**: Manual stack management for register spilling:
-```assembly
-# Function prologue
-addi sp, sp, -16           # allocate stack space
-sw ra, 12(sp)              # save return address
-sw s0, 8(sp)               # save saved registers
-sw s1, 4(sp)
-sw s2, 0(sp)
+The main thing assembly forces: you cannot hide from the calling convention. Every function needs a prologue (push `ra`, `s0`–`sN`), every early exit needs the matching epilogue, and any mistake silently corrupts the return address. A high-level language handles this automatically — writing it by hand for 1551 lines gives a visceral sense of what compilers do and why calling conventions exist.
 
-# Function epilogue
-lw s2, 0(sp)               # restore saved registers
-lw s1, 4(sp)
-lw s0, 8(sp)
-lw ra, 12(sp)              # restore return address
-addi sp, sp, 16            # deallocate stack space
-jr ra                      # return
-```
-
-## Testing & Validation Framework
-
-### **Unit Testing Strategy**
-Each mathematical kernel tested independently with **known-good test vectors**:
-
-**Matrix Multiply Tests**: Small matrices with hand-computed expected results
-**ReLU Tests**: Edge cases including zero, negative, and positive values
-**Argmax Tests**: Arrays with ties, single elements, and boundary conditions
-
-### **Integration Testing**
-Full neural network pipeline tested against **reference Python implementation**:
-
-```python
-# Generate test cases
-import numpy as np
-weights1 = np.random.randn(784, 128)
-weights2 = np.random.randn(128, 10)
-test_input = np.random.randn(784)
-
-# Compute expected output
-hidden = np.maximum(0, test_input @ weights1)  # ReLU
-output = hidden @ weights2
-predicted_class = np.argmax(output)
-```
-
-**Bit-Exact Validation**: Fixed-point arithmetic enables **deterministic results** — assembly output must match reference implementation exactly.
-
-### **Performance Benchmarking**
-Venus simulator provides cycle-accurate execution statistics:
-
-**Instruction Breakdown**: 
-- 45% arithmetic operations (add, mul, sll)
-- 30% memory operations (lw, sw)  
-- 15% control flow (beq, bne, jal)
-- 10% system calls and overhead
-
-**Hotspot Analysis**: Matrix multiplication consumes 85% of total execution time, validating optimization focus.
-
-## Advanced Assembly Techniques
-
-### **Loop Optimization Patterns**
-**Strength Reduction**: Replace expensive operations with cheaper equivalents:
-```assembly
-# Instead of: mul t0, t1, 4
-slli t0, t1, 2             # shift left by 2 (multiply by 4)
-
-# Instead of: div t0, t1, 8  
-srai t0, t1, 3             # arithmetic right shift by 3
-```
-
-**Loop Unrolling**: Reduce branch overhead by processing multiple elements per iteration:
-```assembly
-# Process 4 elements per iteration
-unrolled_loop:
-    lw t0, 0(a0)              # element 1
-    lw t1, 4(a0)              # element 2  
-    lw t2, 8(a0)              # element 3
-    lw t3, 12(a0)             # element 4
-    # Process all 4 elements
-    addi a0, a0, 16           # advance by 4 elements
-    addi t4, t4, 4            # update counter
-    blt t4, s0, unrolled_loop
-```
-
-### **Data Structure Design**
-**Matrix Representation**: 
-```assembly
-# Matrix header: [rows, cols, data...]
-matrix1:
-    .word 128                 # number of rows
-    .word 10                  # number of columns  
-    .word 1, 2, 3, ...        # matrix elements in row-major order
-```
-
-**Dynamic Memory Layout**: Consistent header format enables **generic matrix operations** that work with any dimensions.
-
-## Performance Analysis & Optimization
-
-### **Algorithmic Complexity**
-**Forward Pass Complexity**: O(N×M×K) for matrix multiply where N, M, K are matrix dimensions
-- Hidden layer: O(784 × 128) = ~100K operations
-- Output layer: O(128 × 10) = ~1K operations  
-- Total: ~101K fixed-point multiplications per inference
-
-**Memory Access Patterns**: Row-major matrix storage provides good **spatial locality** for cache performance, though Venus simulator doesn't model caches.
-
-### **Assembly vs High-Level Language Tradeoffs**
-
-**Performance Benefits**: 
-- No compiler overhead or unexpected optimizations
-- Direct control over register allocation and instruction scheduling
-- Elimination of function call overhead for simple operations
-
-**Development Costs**:
-- 50× more lines of code than equivalent C implementation
-- Manual memory management and error handling  
-- Difficult debugging and maintenance
-
-**Educational Value**: Understanding low-level implementation reveals **how compilers work** and what optimizations they perform automatically.
-
-## Real-World Applications & Insights
-
-### **Embedded Systems Development**
-This project simulates **resource-constrained environments** where every instruction matters:
-- Microcontrollers with limited memory
-- Real-time systems with strict timing requirements  
-- Custom accelerators with specialized instruction sets
-
-### **Compiler Design Understanding**
-Hand-coding assembly provides intuition for **compiler optimization techniques**:
-- Register allocation strategies
-- Loop optimization patterns
-- Code generation for mathematical operations
-
-### **Computer Architecture Insights**
-Working at assembly level reveals **hardware-software interface details**:
-- How high-level operations map to instruction sequences
-- Memory hierarchy impact on algorithm design
-- RISC vs CISC instruction set tradeoffs
-
-## Extensions & Advanced Features
-
-### **Optimization Opportunities**
-**SIMD Instructions**: RISC-V vector extensions could provide massive speedups for matrix operations:
-```assembly
-# Hypothetical vector code (not implemented)
-vload v1, (a0)            # load 8 elements into vector register
-vload v2, (a1)            # load 8 elements  
-vmul v3, v1, v2           # 8 parallel multiplies
-vstore v3, (a2)           # store 8 results
-```
-
-**Cache Optimization**: Blocked matrix multiplication for better locality:
-```assembly
-# Process matrices in cache-friendly tiles
-tile_i_loop:
-    tile_j_loop:
-        tile_k_loop:
-            # Small matrix multiply on tile
-        # Continue to next k-tile
-    # Continue to next j-tile  
-# Continue to next i-tile
-```
-
-### **Architectural Extensions**
-**Quantization**: 8-bit integer arithmetic for mobile deployment
-**Batch Processing**: Process multiple images simultaneously
-**Convolutional Layers**: Add support for CNN architectures
-
-### **Testing & Validation Enhancements**
-**Property-Based Testing**: Generate random test cases automatically
-**Coverage Analysis**: Ensure all code paths exercised
-**Performance Regression Testing**: Track cycle counts across changes
-
-## Key Engineering Lessons
-
-### **1. Low-Level Programming Discipline**
-Assembly programming requires **extreme attention to detail**. A single incorrect register reference or branch target corrupts the entire program state.
-
-### **2. Understanding Abstractions**  
-Working below high-level language abstractions reveals **hidden complexity** in operations we take for granted — matrix multiplication becomes hundreds of explicit load/store/multiply instructions.
-
-### **3. Performance vs Productivity Tradeoffs**
-Hand-optimized assembly can achieve excellent performance, but development time increases dramatically. Modern compilers often produce comparable results with much less effort.
-
-### **4. Hardware-Software Co-Design**
-Understanding instruction-level details enables better **system design decisions** — knowing the cost of operations informs algorithm choices and hardware requirements.
-
-This project demonstrates that **modern machine learning is accessible at every level of the computing stack**. While nobody writes neural networks in assembly for production, understanding the low-level implementation provides crucial insights for systems engineering, compiler design, and hardware architecture work.
+The fixed-point decision was also instructive. The Venus simulator doesn't model FPU instructions accurately, and the assignment spec required integer arithmetic. Pre-scaling weights in Python to fit the fixed-point range took about 10 lines of NumPy; the assembly itself never sees a float. The accuracy cost (91% vs ~97% for a float implementation) is entirely from quantization.

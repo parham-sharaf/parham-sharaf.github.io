@@ -1,216 +1,110 @@
 ---
 title: "Build Your Own World"
-summary: "A sophisticated 2D world generator with dynamic lighting, line-of-sight exploration, custom tilesets, and interactive minimaps — infinite deterministic worlds from a single seed."
+summary: "Procedurally generated tile-based dungeons with Dijkstra-routed hallways, circular line-of-sight, and deterministic save/load via seed replay. Written in Java from scratch."
 date: 2023-05-01
 category: "Game Development"
 tech:
   - Java
-  - Custom Graphics Engine
-  - Dijkstra's Algorithm
-  - Dynamic Lighting
-  - Game Architecture
+  - StdDraw
+  - Algs4
+  - Procedural Generation
 tags:
   - games
   - procedural
   - graphics
-  - ui-design
+  - systems
 featured: true
 status: "shipped"
 ---
 
-![](/images/byow-hero.png)
-
-**The Vision**: Transform procedural world generation from academic exercise into **professional-quality interactive experience**. Every world must feel handcrafted despite being purely algorithmic, with rich visual feedback, intuitive controls, and compelling exploration mechanics.
-
-**The Challenge**: Most procedural generators create sterile, maze-like environments. This implementation focuses on **architectural believability** — rooms that feel purposeful, hallways that make sense, and exploration that rewards curiosity through sophisticated visual systems.
-
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
-  <img src="/images/byow-hero.png" alt="Main world view showing architectural variety" style="margin: 0; border-radius: 0.5rem;" />
-  <img src="/images/byow-world-gold.png" alt="Golden theme with custom tileset" style="margin: 0; border-radius: 0.5rem;" />
-  <img src="/images/byow-world-explore.png" alt="Complex multi-room structure" style="margin: 0; border-radius: 0.5rem;" />
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/byow-hero.png" alt="Default tileset world" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/byow-world-gold.png" alt="Golden temple theme" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/byow-world-explore.png" alt="Multi-room structure" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
 </div>
 
-## Visual Architecture & Design Systems
+Infinite deterministic tile worlds from a single 64-bit seed. The same seed produces the same world on any machine — room placement, hallway routing, and player spawn are all seeded from a single `java.util.Random`. Three distinct tile themes applied to the same underlying grid.
 
-### **Custom Graphics Engine with Multiple Themes**
-Moved beyond default ASCII tiles to implement a **full custom graphics system** with interchangeable visual themes:
+## Room Placement
 
-**Theme Variations**: Classic dungeon, golden temple, futuristic facility, and natural cave systems — each with custom 16×16 PNG tilesets that transform the same underlying world structure into completely different visual experiences.
+Rooms are placed by repeated random sampling. Each attempt picks a random `(x, y)` origin and a random `(w, h)` dimension capped at 6×6 tiles:
 
-**Rendering Pipeline**: Double-buffered sprite system eliminates flickering and supports smooth animations. Each tile type (wall, floor, door, decoration) has multiple variants that are procedurally selected to create visual variety.
+```java
+Point point = new Point(randomX(), randomY());
+Dimension dim = roomDimension(point);
+Rectangle room = new Rectangle(point, dim);
+if (!intersectsExistingRooms(this.rooms, room.getBounds())) {
+    this.rooms.add(room);
+    connectRooms(room);
+}
+```
 
-**Architectural Variety**: Algorithm ensures minimum 20% coverage with rectangular rooms connected by realistic L-shaped and curved hallway systems. Rooms vary in size and purpose — small chambers, grand halls, narrow corridors, and open courtyards create believable spatial relationships.
+Rooms that intersect any existing room are discarded. The loop runs until `maxNumRooms` non-overlapping rooms are placed — a number itself randomly drawn between 5 and 45 per seed. Boundary clipping handles rooms that would otherwise overflow the 80×30 grid.
 
-### **Dynamic Lighting & Atmospheric Effects**
-Implemented **gradient lighting system** that transforms exploration from simple reveal mechanics into atmospheric discovery:
+## Hallway Routing
 
-![](/images/byow-lighting-comparison.png)
+The hard part is connecting rooms without creating an illegible tangle of corridors. Every room is a node in a weighted graph (`EdgeWeightedGraph` from Algs4), with edge weights equal to Euclidean distance between room origins. To find a compact spanning connection order, the generator runs a greedy nearest-neighbor traversal using `DijkstraUndirectedSP`:
 
-The lighting engine calculates **light falloff** from multiple sources with realistic occlusion. Torches, windows, and magical artifacts cast overlapping illumination that creates depth and guides player movement naturally.
+1. Start at room 0.
+2. Run Dijkstra from the current room to all others.
+3. Move to the unvisited room with minimum graph distance.
+4. Repeat until all rooms are visited.
 
-**Shadow Casting**: Walls block light realistically using ray-casting algorithms. Players learn to navigate by following light sources and interpreting shadow patterns — darkness becomes a gameplay element rather than arbitrary limitation.
+This produces a visitation order that tends to connect nearby rooms first, avoiding long cross-world corridors. Each consecutive pair in the order gets an L-shaped hallway: one horizontal segment and one vertical segment meeting at a corner.
 
-## Advanced Line-of-Sight & Exploration
-
-The exploration system goes beyond simple radius-based fog-of-war to implement **realistic vision mechanics**:
-
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 1.5rem 0;">
-  <img src="/images/byow-los-white.png" alt="Full visibility mode showing world structure" style="margin: 0; border-radius: 0.5rem;" />
-  <img src="/images/byow-los-gold.png" alt="Line-of-sight with golden lighting theme" style="margin: 0; border-radius: 0.5rem;" />
-  <img src="/images/byow-los-pink.png" alt="Exploration progress with discovered areas" style="margin: 0; border-radius: 0.5rem;" />
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/byow-architecture-analysis.png" alt="Room and hallway layout analysis" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/byow-los-white.png" alt="Full visibility mode showing world structure" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
 </div>
 
-### **Intelligent Occlusion System**
-Vision respects **architectural geometry** — you can't see through walls into distant rooms, but doorways and open spaces extend sight lines naturally. The algorithm traces sight rays from player position, accounting for wall thickness and corner geometry.
+Wall generation is a post-processing pass: every room and hallway rectangle is expanded by 1 tile in each direction, and any `NOTHING` tile in that border becomes `WALL`. Floor tiles never get overwritten, so overlapping borders produce doorways automatically.
 
-**Memory-Based Discovery**: The system maintains **three-layer visibility** — currently visible (bright), recently seen (dimmed), and unexplored (dark). This creates the satisfying mental map-building that drives exploration psychology.
+## Line of Sight
 
-**Interactive Elements**: Discovered areas reveal environmental details progressively — decorative elements, architectural features, and navigational landmarks emerge as players move through spaces.
+Toggling `M` switches from full visibility to a constrained view. The constraint is an ellipse of radius 8 centered on the player:
 
-## User Interface & Interactive Design
+```java
+public TETile[][] getConsTiles(Point p) {
+    int radius = 8;
+    Shape circle = new Ellipse2D.Double(p.x - radius/2, p.y - radius/2, radius, radius);
+    // tiles outside the ellipse → NOTHING
+}
+```
 
-### **Professional-Grade UI Systems**
-Built comprehensive interface systems that rival commercial games:
+Only tiles whose `(i, j)` coordinates fall inside the ellipse are copied to the render buffer — everything else stays dark. This is a visibility *mask*, not shadow casting: it doesn't account for walls occluding distant tiles, but it creates effective exploration tension because you can't see around corners into adjacent rooms.
 
-**Interactive Minimap**: Real-time world overview with player tracking, discovered area highlights, and point-of-interest markers. The minimap updates dynamically as exploration progresses, serving both as navigation aid and progress visualization.
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/byow-los-white.png" alt="Full visibility" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/byow-los-gold.png" alt="Line-of-sight — golden theme" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/byow-los-pink.png" alt="Line-of-sight — pink theme" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-![](/images/byow-minimap-system.png)
+## Save and Load
 
-**Contextual Information Display**: Mouse hover reveals detailed tile information — room descriptions, architectural features, environmental details. Click-to-move navigation with pathfinding visualization shows intended movement before execution.
+Save state is three lines in `world.txt`: the seed, the player's `(x, y)` position, and the full movement recording string (every `WASD` and `M` keypress concatenated). Load works by replaying:
 
-**Status Integration**: Seamless HUD elements display exploration progress, world statistics, and navigation hints without cluttering the visual experience.
+```
+seed
+playerX playerY
+WWDDSSWWMWWASD...
+```
 
-### **Mouse-Driven Navigation Excellence**
-Implemented **intelligent pathfinding** with visual feedback that makes navigation feel responsive and predictable:
+On load, the engine reconstructs the world from the seed (deterministic — same output every time), places the player at the saved position, then feeds the recorded input string back through the game loop. The result is bit-exact state recovery without serializing the tile array.
 
-**Pathfinding Visualization**: Intended routes display as subtle overlay lines before movement execution. Algorithm calculates optimal paths around obstacles while respecting exploration limitations.
+The tradeoff: recording length grows with play time. A multi-hour session would produce a correspondingly long replay string, making load time O(actions) rather than O(1). For this project scope that's acceptable.
 
-**Contextual Interaction**: Different cursor states for movement, exploration, and interaction. Visual feedback confirms player intentions before actions execute.
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 1.5rem 0;">
+  <img src="/images/byow-minimap-system.png" alt="Minimap and HUD overlay" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+  <img src="/images/byow-lighting-comparison.png" alt="Lighting comparison across themes" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-## Procedural Architecture & World Quality
-
-### **Architectural Intelligence**
-The world generation system creates spaces that feel **intentionally designed** rather than randomly assembled:
-
-**Room Purpose & Variety**: Different room types serve implied functions — entrance halls, storage chambers, meeting spaces, private quarters. Size relationships follow architectural logic with appropriate connecting passages.
-
-**Circulation Planning**: Hallway systems follow realistic traffic flow patterns. Main corridors connect major spaces, while secondary passages provide alternative routes and service access.
-
-![](/images/byow-architecture-analysis.png)
-
-**Structural Integrity**: Wall systems follow realistic construction logic — load-bearing walls, proper openings, and structural continuity. No floating walls or impossible geometries.
-
-### **Population Density Optimization**
-Sophisticated space planning ensures **minimum 50% world utilization** while maintaining architectural believability:
-
-**Adaptive Layout**: Algorithm adjusts room density and size distribution based on world dimensions. Small worlds get intimate, detailed spaces while large worlds support grand architectural gestures.
-
-**Dead Space Elimination**: Every generated area serves either functional (navigable space) or architectural (structural element) purposes. No wasted or meaningless regions.
-
-## Advanced Game Mechanics
-
-### **Encounter & Interaction Systems**
-Beyond basic exploration, implemented sophisticated **game mechanic foundations**:
-
-**Enemy AI with Pathfinding**: Intelligent opponents that navigate the world using the same pathfinding systems as the player. Visual path projection shows enemy intentions and movement predictions.
-
-**Environmental Storytelling**: Architectural details and room arrangements suggest narrative context — defensive positions, ceremonial spaces, storage areas, and living quarters tell stories through spatial design.
-
-**Collectible Integration**: Item placement follows logical principles — valuable objects in secure locations, tools near workspaces, supplies in storage areas.
-
-### **Save System Excellence**
-Comprehensive persistence that maintains **complete world state** including:
-
-**Exploration History**: Every discovered tile, lighting state, and interaction memory preserved across sessions.
-
-**Deterministic Replay**: Identical seeds produce identical worlds across platforms and sessions, enabling shared world experiences and competition scenarios.
-
-**State Compression**: Efficient save files using run-length encoding and delta compression techniques maintain fast load times even for extensively explored worlds.
-
-## Performance & Technical Excellence
-
-### **Rendering Optimization**
-Custom graphics pipeline achieves **60 FPS performance** on complex worlds through intelligent optimization:
-
-**Viewport Culling**: Only renders visible screen regions, dramatically improving performance on large worlds. Dynamic level-of-detail adjusts rendering complexity based on distance and importance.
-
-**Sprite Batching**: Consolidated draw calls for similar tiles reduce GPU overhead. Texture atlasing minimizes context switching between different tile types.
-
-**Memory Management**: Efficient sprite caching and garbage collection prevent performance degradation during extended play sessions.
-
-### **Algorithm Efficiency**
-Core world generation algorithms balance quality with performance:
-
-**Incremental Generation**: Large worlds generate progressively as players explore, maintaining responsive startup times while supporting virtually unlimited world sizes.
-
-**Spatial Indexing**: Hash-based spatial queries enable instant collision detection and pathfinding on complex world geometries.
-
-**Multi-threaded Processing**: Background threads handle non-critical systems (lighting calculations, AI pathfinding) without impacting player responsiveness.
-
-## Visual Polish & Professional Features
-
-### **Animation & Effects Systems**
-Sophisticated visual feedback creates **premium game experience**:
-
-**Smooth Transitions**: Player movement, lighting changes, and UI interactions use eased animations rather than jarring instant updates.
-
-**Particle Effects**: Environmental elements like torch flames, dust motes, and magical effects add atmospheric depth without overwhelming core gameplay.
-
-**Visual Feedback**: All player actions receive immediate, clear visual confirmation through subtle animations and interface responses.
-
-### **Audio Integration**
-Immersive soundscape enhances visual exploration:
-
-**Environmental Audio**: Footstep variations based on surface types, ambient sounds that suggest room purposes, and spatial audio that provides navigation cues.
-
-**Interactive Sounds**: Door opening, item collection, and movement audio with appropriate 3D positioning and environmental reverb.
-
-## Design Philosophy & User Experience
-
-### **Exploration Psychology**
-The game design leverages **cognitive reward systems** to create compelling exploration:
-
-**Progressive Disclosure**: Information reveals gradually — architectural overview from minimap, room details from proximity, fine details from direct exploration.
-
-**Cognitive Mapping**: Players build mental models of world structure through consistent visual language and logical spatial relationships.
-
-**Achievement Recognition**: Exploration milestones and discovery achievements provide progression feedback beyond simple movement.
-
-### **Accessibility & Inclusivity**
-Professional attention to usability ensures broad player accessibility:
-
-**Multiple Control Schemes**: Keyboard navigation, mouse-driven play, and hybrid approaches accommodate different player preferences and accessibility needs.
-
-**Visual Clarity**: High contrast themes, clear UI typography, and consistent iconography support players with visual challenges.
-
-**Difficulty Scaling**: Configurable exploration complexity allows players to adjust challenge level based on experience and preferences.
-
-## Real-World Applications & Impact
-
-This project demonstrates **professional game development skills** relevant to interactive entertainment and software design:
-
-### **Game Industry Applications**
-**Procedural Content Generation**: Techniques directly applicable to commercial game development, level design tools, and content creation pipelines.
-
-**User Interface Design**: Professional-quality UI implementation showcases skills valuable for any interactive software development.
-
-**Performance Optimization**: Graphics optimization and memory management techniques applicable to mobile games, VR applications, and real-time systems.
-
-### **Technical Skills Demonstration**
-**Software Architecture**: Clean separation between rendering, game logic, and data management shows enterprise-quality code organization.
-
-**User Experience Design**: Attention to player psychology and interaction design demonstrates product development understanding.
-
-**Visual Design Systems**: Custom graphics implementation and theme systems show creative technical problem-solving.
-
-The BYOW project transforms an academic exercise into a **portfolio piece that demonstrates professional game development capabilities** — combining technical sophistication with polished user experience to create something genuinely engaging to explore.
+## Controls
 
 <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-fg-muted); display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1.5rem; margin: 1rem 0;">
   <span style="color: var(--color-accent);">N &lt;seed&gt; S</span><span>Generate new world from seed</span>
-  <span style="color: var(--color-accent);">W A S D</span><span>Navigate with smooth movement</span>
-  <span style="color: var(--color-accent);">M</span><span>Toggle line-of-sight exploration mode</span>
-  <span style="color: var(--color-accent);">C</span><span>Cycle through visual themes</span>
-  <span style="color: var(--color-accent);">T</span><span>Toggle interactive minimap</span>
-  <span style="color: var(--color-accent);">:Q</span><span>Quick save and exit</span>
-  <span style="color: var(--color-accent);">L</span><span>Load previous exploration session</span>
+  <span style="color: var(--color-accent);">W A S D</span><span>Move on tile grid (floor tiles only)</span>
+  <span style="color: var(--color-accent);">M</span><span>Toggle circular line-of-sight mask</span>
+  <span style="color: var(--color-accent);">C</span><span>Cycle avatar (5 options)</span>
+  <span style="color: var(--color-accent);">:Q</span><span>Save seed + position + recording, quit</span>
+  <span style="color: var(--color-accent);">L</span><span>Load and replay saved session</span>
 </div>

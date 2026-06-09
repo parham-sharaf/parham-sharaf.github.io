@@ -8,9 +8,15 @@ type Project = CollectionEntry<'projects'>;
  * Falls back to undefined if no image found.
  */
 export function coverImage(project: Project): string | undefined {
+  // Explicit frontmatter override takes priority
+  if (project.data.heroImage) return project.data.heroImage;
   const body = project.body ?? '';
-  const match = body.match(/!\[[^\]]*\]\(([^)]+)\)/);
-  return match?.[1];
+  // Markdown image: ![alt](src)
+  const mdMatch = body.match(/!\[[^\]]*\]\(([^)]+)\)/);
+  if (mdMatch) return mdMatch[1];
+  // HTML img tag: <img src="..."> (used by styled div blocks)
+  const htmlMatch = body.match(/<img\s[^>]*src="([^"]+)"/);
+  return htmlMatch?.[1];
 }
 
 /**

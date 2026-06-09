@@ -15,173 +15,78 @@ tags:
   - simd
 featured: true
 status: "shipped"
+heroImage: "/images/conv_simd_register.png"
 ---
 
-![](/images/conv-bench.png)
+<div style="margin: 1.5rem 0;">
+  <img src="/images/conv-bench.png" alt="Wall time and speedup vs image size" style="margin: 0; border-radius: 0.5rem; width: 100%; background: white; padding: 0.5rem;" />
+</div>
 
-**The Challenge**: Naive 2D convolution is embarrassingly slow — O(H×W×Kh×Kw) operations with poor memory access patterns. Can we exploit modern CPU vector units and multi-core architectures to achieve dramatic speedups without sacrificing correctness?
-
-**The Result**: 17× speedup on 1024×1024 images using hand-written AVX2 intrinsics with OpenMP parallelization. Every optimization decision backed by profiling data and validated against reference implementation.
+Naive 2D convolution is O(H × W × Kh × Kw) with poor cache behavior — every output pixel re-reads overlapping input windows, and the scalar inner loop uses none of the CPU's 256-bit vector units. Starting from a `perf stat` baseline showing 85% cache miss rate and <5% vector utilization, three optimization layers brought 1024×1024 throughput from 1479 ms to 87 ms.
 
 <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-fg-muted); display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1.5rem; margin: 1.5rem 0;">
   <span style="color: var(--color-accent);">vectorization</span><span>8-wide int32 SIMD with AVX2 (_mm256_mullo_epi32)</span>
-  <span style="color: var(--color-accent);">parallelization</span><span>OpenMP loop collapse(2) over output tiles</span>
-  <span style="color: var(--color-accent);">memory</span><span>Cache-friendly tiling + kernel flipping optimization</span>
-  <span style="color: var(--color-accent);">performance</span><span>17× speedup @ 1024×1024, scales linearly with cores</span>
-  <span style="color: var(--color-accent);">correctness</span><span>Bit-exact results vs reference, comprehensive test suite</span>
+  <span style="color: var(--color-accent);">parallelization</span><span>OpenMP collapse(2) over output tiles</span>
+  <span style="color: var(--color-accent);">tiling</span><span>64×64 blocks — fits input + kernel + output in 32 KB L1</span>
+  <span style="color: var(--color-accent);">result</span><span>17.1× speedup at 1024×1024, bit-exact vs reference</span>
 </div>
 
-## Performance Engineering Methodology
+## SIMD Vectorization
 
-This project demonstrates **systematic performance optimization** — starting with profiling bottlenecks, then applying targeted optimizations with careful measurement at each step.
+AVX2 provides 256-bit vector registers. For int32 convolution, that means 8 pixels processed per multiply-accumulate instruction instead of 1:
 
-### **Baseline Analysis**
-The naive implementation revealed several performance pathologies:
-- **Memory bandwidth bound**: Redundant loads from overlapping convolution windows
-- **Cache misses**: Poor temporal locality accessing kernel weights  
-- **Scalar arithmetic**: No utilization of 256-bit vector units
-- **Single-threaded**: Leaving 7 cores idle on 8-core test machine
+<div style="margin: 1.5rem 0;">
+  <img src="/images/conv_simd_register.png" alt="AVX2 256-bit register packing 8 int32 lanes" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-**Profiling Results**: `perf stat` showed 85% cache miss rate and <5% vector utilization, confirming memory-bound behavior with massive parallel opportunity.
-
-![](/images/conv-demo.png)
-
-*Testing on real image data: 512×512 pattern convolved with 5×5 edge detection and 9×9 box blur kernels*
-
-## SIMD Vectorization Deep Dive
-
-### **SIMD Vectorization Strategy**
-The core optimization uses **AVX2 intrinsics for 8-way parallel multiplication** — replacing 8 scalar operations with a single vector instruction. The inner loop processes 8 pixels simultaneously using `_mm256_mullo_epi32` for integer arithmetic.
-
-**Horizontal Reduction Challenge**: Summing the 8 vector elements requires manual reduction since AVX2 lacks direct horizontal sum operations. The solution uses a reduction tree pattern that adds ~6 cycles per pixel but enables 8× throughput.
-
-**Remainder Handling**: Non-multiple-of-8 image widths require scalar cleanup loops, though masked SIMD loads could eliminate this at the cost of added complexity.
-
-## Memory Access Optimization
-
-### **Memory Access Optimization**
-**Cache-Friendly Tiling**: Processing 64×64 blocks optimizes L1 cache usage — each tile fits comfortably in 32KB cache including kernel weights and output buffers. OpenMP parallelizes across tiles using `collapse(2)` for optimal load balancing.
-
-**Kernel Flipping Strategy**: Pre-computing the 180° kernel rotation during initialization eliminates inner-loop index arithmetic, saving ~10 cycles per kernel element for substantial performance gains on large kernels.
-
-## OpenMP Parallelization Strategy
-
-### **OpenMP Parallelization Excellence**
-**Loop Collapse Strategy**: The `collapse(2)` directive creates work units from both tile dimensions — typically 256+ independent tasks distributed across threads. Dynamic scheduling automatically handles edge tile load imbalancing.
-
-**NUMA-Aware Memory**: First-touch allocation policies ensure data placement on the correct NUMA nodes, critical for multi-socket system performance.
-
-## Performance Analysis & Benchmarking
-
-### **Scaling Analysis**
-Comprehensive benchmarking across different image sizes and core counts reveals scaling characteristics:
-
-**Thread Scaling**: Near-linear speedup up to 8 cores (matches hardware), slight degradation beyond due to memory bandwidth saturation.
-
-**Image Size Scaling**: Performance per pixel **improves** with larger images due to better amortization of setup costs and improved cache behavior.
-
-**Kernel Size Impact**: Larger kernels benefit more from vectorization (more arithmetic per memory access) but eventually become memory-bound again.
-
-### ## Performance Results & Industry Comparison
-
-![](/images/performance-comparisons.png)
-
-**Competitive Analysis**: Our implementation achieves 2.3× better performance than OpenCV on integer convolution, performs within 5% of Intel IPP (industry standard), and outperforms frequency domain approaches for typical kernel sizes due to FFT overhead considerations.
-
-### **Profiling-Driven Development**
-
-Used `perf` extensively to validate optimization effectiveness:
-
-```bash
-# Before optimization
-perf stat -e cache-misses,instructions,cycles ./conv_naive
-# 85% cache miss rate, 2.8 IPC
-
-# After full optimization  
-perf stat -e cache-misses,instructions,cycles ./conv_optimized
-# 12% cache miss rate, 1.9 IPC (lower due to complex SIMD instructions)
-```
-
-**Lessons Learned**: IPC (instructions per cycle) dropped despite better performance because SIMD instructions are more complex. **Total throughput** is the metric that matters, not IPC alone.
-
-## Advanced Optimization Techniques
-
-### **Loop Unrolling Experiments**
-Tested manual loop unrolling to reduce branch overhead:
+The inner loop loads 8 pixels from the input window into `__m256i`, multiplies by the broadcast kernel weight, and accumulates. Horizontal reduction (summing the 8 lanes to a scalar) adds ~6 cycles per output pixel but enables 8× arithmetic throughput.
 
 ```c
-// Unroll kernel loops by factor of 4
-for (int kr = 0; kr < kernel_rows; kr += 4) {
-    // Process 4 kernel rows per iteration
-    process_kernel_row(kr);
-    process_kernel_row(kr + 1);
-    process_kernel_row(kr + 2);  
-    process_kernel_row(kr + 3);
+__m256i pixels = _mm256_loadu_si256((__m256i*)&input[row][col]);
+__m256i kernel_val = _mm256_set1_epi32(kernel[kr][kc]);
+__m256i products = _mm256_mullo_epi32(pixels, kernel_val);
+acc = _mm256_add_epi32(acc, products);
+```
+
+Image widths that aren't multiples of 8 require a scalar cleanup loop for the remainder. This could be eliminated with masked loads, but the complexity isn't worth it for typical image sizes.
+
+## Cache-Friendly Tiling
+
+Processing the full image row by row causes repeated cold cache misses on the kernel weights. 64×64 output tiles bring the working set (input patch + kernel + output tile) under 32 KB — fitting in L1 cache. Each tile is processed to completion before moving to the next, giving good temporal locality.
+
+OpenMP parallelizes across tiles with `collapse(2)`:
+
+```c
+#pragma omp parallel for collapse(2) schedule(dynamic)
+for (int ti = 0; ti < n_tiles_y; ti++) {
+    for (int tj = 0; tj < n_tiles_x; tj++) {
+        process_tile(ti, tj);
+    }
 }
 ```
 
-**Result**: 3% performance improvement for 3×3 kernels, no benefit for larger kernels. GCC's auto-unrolling was already effective.
+`collapse(2)` creates one work unit per tile rather than per row — typically 256+ independent tasks on a 1024×1024 image, enough for dynamic scheduling to load-balance the edge tiles cleanly.
 
-### **Prefetching Experiments**
-Attempted manual cache prefetching for input data:
+## Speedup by Stage
 
-```c
-__builtin_prefetch(&input[row + PREFETCH_DISTANCE], 0, 1);
-```
+<div style="margin: 1.5rem 0;">
+  <img src="/images/conv_speedup_stages.png" alt="Speedup by optimization stage: naive 1×, SIMD 8.2×, OpenMP 7.8×, combined 17.1×" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-**Result**: No measurable improvement. The regular access patterns were already handled well by hardware prefetchers.
+SIMD alone gives 8.2× — slightly above the theoretical 8× because pre-flipping the kernel (a 180° rotation done once at init rather than per-output-pixel) eliminates index arithmetic from the inner loop. OpenMP alone gives 7.8× on 8 cores — near-linear, confirming the workload is embarrassingly parallel. Combined, they give 17.1× rather than the 65.6× theoretical product, because at high thread counts the bottleneck shifts from compute to memory bandwidth.
 
-**Learning**: Don't optimize without profiling evidence. Many "obvious" optimizations provide no benefit on modern CPUs.
+## Input/Output
 
-## Code Architecture & Testing
+<div style="margin: 1.5rem 0;">
+  <img src="/images/conv-demo.png" alt="Input rings+noise, edge-detect 5×5 output, box-blur 9×9 output" style="margin: 0; border-radius: 0.5rem; width: 100%; background: white; padding: 0.5rem;" />
+</div>
 
-### **Clean Interface Design**
-Despite heavy optimization, maintained a **simple API**:
+Testing on synthetic ring + noise input with a 5×5 edge-detection kernel and a 9×9 box blur. Results are bit-exact against the naive reference across all tested sizes and kernel shapes, verified with address sanitizer builds.
 
-```c
-// High-level interface hides complexity
-Matrix* convolve_2d(Matrix* input, Matrix* kernel);
+## Profiling Notes
 
-// Performance variant for experts
-Matrix* convolve_2d_optimized(Matrix* input, Matrix* kernel, 
-                              int num_threads, int tile_size);
-```
+Two "obvious" optimizations that made no difference:
+- **Manual prefetching** (`__builtin_prefetch`) — hardware prefetchers already handle the regular access pattern.
+- **4× loop unrolling** — GCC's auto-unroll at -O2 was already doing it; explicit unrolling added 3% for 3×3 kernels and nothing for larger ones.
 
-### **Comprehensive Testing Strategy**
-**Correctness First**: Every optimization validated against naive reference implementation using extensive test cases:
-
-- **Border cases**: 1×1 matrices, larger-than-image kernels
-- **Numerical accuracy**: Random inputs, edge values (INT_MAX, negative numbers)
-- **Memory safety**: Valgrind integration, address sanitizer builds
-- **Performance regression**: Automated benchmarks in CI pipeline
-
-**Property-Based Testing**: Generated thousands of random input/kernel combinations to catch edge cases that manual test cases miss.
-
-## Real-World Applications & Extensions
-
-This optimization approach generalizes to many **compute-intensive numerical kernels**:
-
-### **Computer Vision Pipelines**
-These techniques directly apply to edge detection, noise reduction, sharpening, and other image processing operations. The 17× speedup enables real-time processing on standard hardware.
-
-### **Signal Processing**
-1D version of the same optimizations accelerates digital filter implementation, audio processing, and time-series analysis.
-
-### **Machine Learning**
-Convolutional neural network forward passes use identical mathematical operations. Understanding these low-level optimizations provides intuition for why specialized ML accelerators matter.
-
-## Key Engineering Lessons
-
-### **1. Profile-Driven Development**
-Never optimize without measuring. Performance intuition is often wrong on modern complex CPUs. `perf`, `vtune`, and similar tools are essential.
-
-### **2. SIMD Programming Requires Different Thinking**
-Vectorization isn't just "faster scalar code" — it requires restructuring algorithms around **data parallelism** and managing alignment, remainder handling, and data layout.
-
-### **3. Memory Hierarchy Matters More Than Raw Compute**
-Modern CPUs have enormous arithmetic throughput but relatively limited memory bandwidth. Cache optimization often provides bigger speedups than algorithmic improvements.
-
-### **4. Parallel Programming Is About Load Balancing**
-Having more work units than cores enables dynamic scheduling to handle irregular workloads. OpenMP's `collapse` directive is underutilized but powerful.
-
-This project demonstrates how **systems-level optimization** can achieve dramatic performance improvements through careful application of hardware capabilities. Understanding these techniques is crucial for building high-performance systems that fully utilize modern CPU architectures.
+The lesson: trust `perf stat` over intuition. IPC actually dropped after optimization (fewer, more complex SIMD instructions), but total throughput was the metric that mattered.

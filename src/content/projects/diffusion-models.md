@@ -17,41 +17,79 @@ featured: true
 status: "shipped"
 ---
 
-![](/images/cs180_p5_generation.png)
+<div style="margin: 1.5rem 0;">
+  <img src="/images/cs180_p5_generation.png" alt="DeepFloyd IF text-to-image samples at various guidance scales" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-**Diffusion models learn to denoise — which, running backwards, generates new images from pure noise**. This project explores them in two halves. Part A uses DeepFloyd IF (a pretrained 4B-parameter diffusion model) to build sampling, inpainting, SDEdit, and visual anagram pipelines. Part B trains a much smaller U-Net from scratch on MNIST to demystify what diffusion *actually is* at the training-loop level.
+Diffusion models learn to denoise — and denoising, run in reverse, generates new images from pure noise. This project covers them in two halves: using DeepFloyd IF (a pretrained 4B-parameter model) to build CFG sampling, SDEdit, inpainting, and visual anagram pipelines; then training a small U-Net from scratch on MNIST to understand what diffusion actually is at the training-loop level.
 
 <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--color-fg-muted); display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1.5rem; margin: 1.5rem 0;">
   <span style="color: var(--color-accent);">pretrained</span><span>DeepFloyd IF — 4B-param text-to-image diffusion model</span>
-  <span style="color: var(--color-accent);">sampling</span><span>Iterative denoising + classifier-free guidance (CFG)</span>
-  <span style="color: var(--color-accent);">editing</span><span>SDEdit, RePaint inpainting, factorized hybrids</span>
-  <span style="color: var(--color-accent);">trained</span><span>Time- and class-conditioned U-Net on MNIST from scratch</span>
+  <span style="color: var(--color-accent);">sampling</span><span>Iterative DDPM denoising + classifier-free guidance (CFG)</span>
+  <span style="color: var(--color-accent);">editing</span><span>SDEdit, RePaint inpainting, visual anagrams via averaged noise</span>
+  <span style="color: var(--color-accent);">trained</span><span>Time- and class-conditioned U-Net on MNIST, from scratch</span>
 </div>
 
-## Denoising Pipeline
+## The Forward Process
 
-![](/images/cs180_p5_pipeline.png)
+The forward process gradually destroys an image by adding Gaussian noise over $T = 1000$ steps. Each step follows:
 
-**The forward process adds Gaussian noise in T=1000 steps according to a known schedule**. Classical denoising (Gaussian blur) fails catastrophically — it smooths noise but also destroys signal. A single forward pass of a trained diffusion model does better, predicting the noise and subtracting it. But single-step denoising doesn't recover sharp images from heavy noise; the full iterative process (denoise, add a bit of noise back, denoise again — 30 times) is what produces clean outputs.
+$$q(\mathbf{x}_t \mid \mathbf{x}_{t-1}) = \mathcal{N}\!\left(\mathbf{x}_t;\, \sqrt{1 - \beta_t}\,\mathbf{x}_{t-1},\, \beta_t \mathbf{I}\right)$$
 
-## Text-to-Image, Inpainting, SDEdit
+where $\{\beta_t\}$ is a fixed noise schedule (linear or cosine). The key identity — the **reparameterization** — lets us jump directly to any timestep without stepping through all previous ones:
 
-**Classifier-free guidance (CFG)** is the trick behind good diffusion samples. Run the U-Net twice per step: once conditioned on the prompt, once unconditionally. Extrapolate *past* the conditional prediction toward the prompt (`guidance_scale` = 7 in the results above). The model gets pushed toward stronger prompt alignment without needing an external classifier.
+$$\mathbf{x}_t = \sqrt{\bar{\alpha}_t}\,\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\,\boldsymbol{\varepsilon}, \qquad \boldsymbol{\varepsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$$
 
-**SDEdit** adds just a little noise to an input image, then runs the reverse process with a new prompt — the result looks like the input but the content follows the prompt. **Inpainting** is the same trick with a mask: only denoise inside the mask, keep the outside pixels fixed (but renoise+remix during each step so the generator adapts to context).
+where $\bar{\alpha}_t = \prod_{s=1}^t (1 - \beta_s)$. At $t = 0$, $\bar{\alpha}_0 = 1$ and $\mathbf{x}_0$ is clean. At $t = T$, $\bar{\alpha}_T \approx 0$ and $\mathbf{x}_T$ is pure noise.
+
+<div style="margin: 1.5rem 0;">
+  <img src="/images/cs180_p5_pipeline.png" alt="Forward noise at t=250/500/750, classical denoising failure, one-step neural denoising, 30-step iterative result" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
+
+Classical denoising (Gaussian blur) fails: it smooths noise but also destroys all signal. A single forward pass of the trained U-Net does better — it predicts $\boldsymbol{\varepsilon}$ and subtracts it — but one-step denoising from $t=1000$ still produces blurry results. The full iterative process (30 steps: denoise, add a small amount of noise back, denoise again) recovers sharp images because each step only asks the network for a small correction, keeping its predictions in-distribution.
+
+## Classifier-Free Guidance
+
+The standard DDPM sampling loop produces diverse but often prompt-misaligned outputs. **Classifier-free guidance (CFG)** trades diversity for prompt fidelity without a separate classifier. At each denoising step, run the U-Net twice — once conditioned on the text prompt, once unconditioned — and extrapolate:
+
+$$\tilde{\boldsymbol{\varepsilon}}_\theta = \boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, \varnothing) + w \bigl(\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, \mathbf{c}) - \boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, \varnothing)\bigr)$$
+
+The guidance scale $w$ controls the trade-off: $w = 1$ is standard sampling; $w = 7$ pushes strongly toward the conditional. The model is simultaneously trained on conditioned and unconditioned inputs (by randomly dropping the conditioning during training), which is why a single model handles both roles.
+
+## SDEdit and Inpainting
+
+**SDEdit**: add noise to an existing image up to some timestep $t^* < T$, then denoise with a new prompt. The amount of noise added controls the edit strength — small $t^*$ makes minimal changes (preserves structure), large $t^*$ allows major transformations (loses structure). The result inherits the original image's low-frequency layout while adapting content to the prompt.
+
+**Inpainting (RePaint)**: at each denoising step, keep the known region by renoising it to match the current timestep, then splice it onto the generated region before the next step:
+
+$$\mathbf{x}_{t-1}[\text{known}] \leftarrow \sqrt{\bar{\alpha}_{t-1}}\,\mathbf{x}_0[\text{known}] + \sqrt{1 - \bar{\alpha}_{t-1}}\,\boldsymbol{\varepsilon}$$
+
+This forces the known region to stay on-distribution for timestep $t-1$, while letting the model generate coherent content inside the mask that blends with its context.
 
 ## Visual Anagrams
 
-![](/images/cs180_p5_anagrams.png)
+<div style="margin: 1.5rem 0;">
+  <img src="/images/cs180_p5_anagrams.png" alt="Visual anagrams: skull upright / waterfall upside-down, and other dual-interpretation images" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-**One image, two valid interpretations depending on orientation**. The setup: at each denoising step, predict noise for the *upright* image with prompt A, predict noise for the *flipped* image with prompt B, average the two. The model simultaneously pushes the image toward "skull" (upright) and "waterfall" (upside-down) — so the final image satisfies both constraints in one composition. This is optimization, not cleverness: the diffusion process naturally solves the constraint because averaging noise predictions averages the implied gradients.
+One image, two prompts, depending on orientation. At each denoising step, predict noise for the upright image under prompt A and for the flipped image under prompt B, then average:
+
+$$\tilde{\boldsymbol{\varepsilon}} = \frac{1}{2}\Bigl(\boldsymbol{\varepsilon}_\theta(\mathbf{x}_t, \mathbf{c}_A) + \text{flip}\bigl(\boldsymbol{\varepsilon}_\theta(\text{flip}(\mathbf{x}_t), \mathbf{c}_B)\bigr)\Bigr)$$
+
+Averaging noise predictions averages the score function gradients — the generator simultaneously follows the gradient toward "skull" and the gradient toward "waterfall upside-down." Because the two gradients point in compatible directions (the image has to satisfy both constraints), the denoising process finds a composition that works for both views.
 
 ## Training a U-Net From Scratch
 
-![](/images/cs180_p5_training.png)
+<div style="margin: 1.5rem 0;">
+  <img src="/images/cs180_p5_training.png" alt="U-Net samples: epoch 5 (noisy), epoch 20 (clean), time-conditioned, class-conditioned 0–9" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
-**Part B builds diffusion from first principles**. A simple U-Net (encoder-bottleneck-decoder with skip connections) takes a noisy image plus a time embedding (and optionally a class embedding) and predicts the noise. Training: sample an image, sample a random timestep t, add noise according to schedule, train network to predict that noise.
+Part B builds diffusion from first principles on MNIST. The U-Net takes a noisy image $\mathbf{x}_t$ and timestep $t$ (encoded as a sinusoidal embedding) and predicts the noise $\boldsymbol{\varepsilon}$. The training objective is simple MSE on the noise prediction:
 
-After 5 epochs on MNIST the network learns digit structure. By epoch 20 it produces clean digits from pure noise. Adding class conditioning lets it generate any specific digit — one of each 0–9 shown in the bottom-right panel.
+$$\mathcal{L} = \mathbb{E}_{t, \mathbf{x}_0, \boldsymbol{\varepsilon}}\!\left[\left\|\boldsymbol{\varepsilon} - \boldsymbol{\varepsilon}_\theta\!\left(\sqrt{\bar{\alpha}_t}\,\mathbf{x}_0 + \sqrt{1-\bar{\alpha}_t}\,\boldsymbol{\varepsilon},\, t\right)\right\|^2\right]$$
 
-The deeper lesson: **DeepFloyd IF is just this, scaled up by ~6 orders of magnitude**. Same loss function. Same architecture family. Same sampling loop. Understanding MNIST diffusion demystifies Stable Diffusion.
+Each training step: sample $\mathbf{x}_0$, sample $t \sim \text{Uniform}(1, T)$, sample $\boldsymbol{\varepsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$, compute $\mathbf{x}_t$ via the reparameterization, predict noise, backprop. The model never sees a clean image during the forward pass — only noisy ones at random timesteps.
+
+By epoch 5 the network learns digit structure but samples are noisy. By epoch 20 it produces clean, diverse digits. Adding class conditioning (embedding the digit label alongside the timestep) lets it generate specific digits on demand — the bottom-right panel shows one of each 0–9.
+
+DeepFloyd IF uses the same loss, the same architecture family (encoder-bottleneck-decoder with skip connections), and the same sampling loop — just scaled up by ~6 orders of magnitude in parameters and trained on a much larger dataset with text conditioning. The MNIST version is a complete, working proof-of-concept of the same mechanism.

@@ -20,7 +20,9 @@ featured: true
 status: "shipped"
 ---
 
-![](/images/attn_heatmaps.png)
+<div style="margin: 1.5rem 0;">
+  <img src="/images/attn_heatmaps.png" alt="4 attention heads × 3 sentences — each head learns different syntactic and semantic relationships" style="margin: 0; border-radius: 0.5rem; width: 100%;" />
+</div>
 
 **4 attention heads on 3 sentences — each head independently learns different relationships: syntactic structure, named entity routing, long-range dependencies.** This project builds everything behind that from scratch: the forward pass in NumPy, CNNs with BatchNorm, the full attention mechanism, and a Masked Autoencoder for self-supervised pretraining.
 
