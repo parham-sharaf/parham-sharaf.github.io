@@ -16,9 +16,11 @@ interface Props {
   width?: 'wide' | 'prose';
   /** Absolute URL of an image to preload (LCP hint) */
   preloadImage?: string;
+  /** Keep this page out of search engines */
+  noindex?: boolean;
 }
 
-const { title, description, image, width = 'wide', preloadImage } = Astro.props;
+const { title, description, image, width = 'wide', preloadImage, noindex = false } = Astro.props;
 const pageTitle = title ? `${title} | ${site.name}` : site.title;
 const pageDesc = description ?? site.description;
 const ogImage = new URL(image ?? '/og-default.png', Astro.site ?? Astro.url.origin).toString();
@@ -35,6 +37,7 @@ const containerClass = width === 'prose' ? 'container-prose' : 'container-page';
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="canonical" href={canonicalUrl} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     {preloadImage && <link rel="preload" as="image" href={preloadImage} fetchpriority="high" />}
     <title>{pageTitle}</title>
     <meta name="description" content={pageDesc} />
