@@ -34,12 +34,12 @@ import Base from '../layouts/Base.astro';
   </section>
 
   <section data-panel="settings" class="snap-panel" hidden>
-    <label class="snap-label" for="snap-key">Anthropic API key</label>
-    <input id="snap-key" type="password" autocomplete="off" placeholder="sk-ant-..." />
+    <label class="snap-label" for="snap-key">Passphrase</label>
+    <input id="snap-key" type="password" autocomplete="off" placeholder="Snap passphrase" />
     <p class="snap-status">
-      Stored only in this browser. Requests go straight from this device to the Anthropic API.
+      Enter it once per device. Answers sync across every device that has it.
     </p>
-    <button id="snap-save-key" class="snap-primary">Save key</button>
+    <button id="snap-save-key" class="snap-primary">Save</button>
   </section>
 </Base>
 
@@ -199,27 +199,10 @@ import Base from '../layouts/Base.astro';
 </style>
 
 <script>
-  import Anthropic from '@anthropic-ai/sdk';
-
-  const KEY_STORE = 'snap:key';
-  const HISTORY_STORE = 'snap:history';
-  const MAX_ITEMS = 30;
-  const SPLIT = '\n===WHY===\n';
-
-  const SYSTEM = `The user sends a phone photo of a problem: usually a coding problem (often LeetCode style), sometimes math or a short question. It may also show code they already wrote.
-
-Reply in exactly this format and nothing else:
-
-<the answer>
-===WHY===
-<the explanation>
-
-The answer:
-- For a coding problem, a single fenced code block in the language shown (Python if none is shown). Clean, idiomatic, readable names, no comments unless a line is truly non obvious, no prints or test harness.
-- If the photo shows the user's own code, build on it: keep their structure, names and approach, and fix or finish it rather than rewriting from scratch.
-- For anything else, the final result in one short line.
-
-The explanation: at most 3 short sentences. Name the key idea, then time and space complexity for code. No headings, no lists, no restating the problem.`;
+  // Cloudflare Worker in ~/Workspace/snap-worker: stores answers and calls Claude.
+  const API = 'https://snap.snap-worker.workers.dev';
+  const KEY_STORE = 'snap:token';
+  const SPLIT = '===WHY===';
 
   interface Entry {
     id: string;
@@ -229,21 +212,6 @@ The explanation: at most 3 short sentences. Name the key idea, then time and spa
     answer: string;
     error?: boolean;
     pending?: boolean;
-  }
-
-  function load<T>(key: string, fallback: T): T {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as T) : fallback;
-    } catch {
-      return fallback;
-    }
-  }
-
-  function save(key: string, value: unknown) {
-    try {
-      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
-    } catch {}
   }
 
   // Phone photos are several MB; Claude reads ~1568px on the long edge at most.
@@ -276,11 +244,11 @@ The explanation: at most 3 short sentences. Name the key idea, then time and spa
     const clearBtn = $<HTMLButtonElement>('snap-clear');
     const keyInput = $<HTMLInputElement>('snap-key');
 
-    let history = load<Entry[]>(HISTORY_STORE, []).map((e) =>
-      e.pending ? { ...e, pending: false, error: true, answer: e.answer || 'Interrupted.' } : e,
-    );
+    let history: Entry[] = [];
     let currentFile: File | null = null;
-    function getKey(): string {
+    let pollTimer: number | undefined;
+
+    function getToken(): string {
       try {
         return localStorage.getItem(KEY_STORE) ?? '';
       } catch {
@@ -288,7 +256,20 @@ The explanation: at most 3 short sentences. Name the key idea, then time and spa
       }
     }
 
-    keyInput.value = getKey() ? '••••••••' : '';
+    async function call(path: string, init: RequestInit = {}): Promise<Response> {
+      const res = await fetch(API + path, {
+        ...init,
+        headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+      });
+      if (res.status === 401) {
+        showTab('settings');
+        throw new Error('Wrong passphrase. Check Settings.');
+      }
+      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `Error ${res.status}`);
+      return res;
+    }
+
+    keyInput.value = getToken() ? '••••••••' : '';
 
     function showTab(name: string) {
       document.querySelectorAll<HTMLButtonElement>('.snap-tabs button').forEach((b) => {
@@ -297,10 +278,6 @@ The explanation: at most 3 short sentences. Name the key idea, then time and spa
       document.querySelectorAll<HTMLElement>('.snap-panel').forEach((p) => {
         p.hidden = p.dataset.panel !== name;
       });
-    }
-
-    function persist() {
-      save(HISTORY_STORE, history.slice(0, MAX_ITEMS));
     }
 
     // Splits "answer ===WHY=== explanation" and renders fenced code as <pre>.
@@ -313,9 +290,9 @@ The explanation: at most 3 short sentences. Name the key idea, then time and spa
         why.hidden = true;
         return;
       }
-      const cut = e.answer.indexOf(SPLIT.trim());
+      const cut = e.answer.indexOf(SPLIT);
       const main = (cut === -1 ? e.answer : e.answer.slice(0, cut)).trim();
-      const rest = cut === -1 ? '' : e.answer.slice(cut + SPLIT.trim().length).trim();
+      const rest = cut === -1 ? '' : e.answer.slice(cut + SPLIT.length).trim();
       const parts = main.split(/```[^\n]*\n?/);
       answer.replaceChildren(
         ...parts
@@ -345,7 +322,6 @@ The explanation: at most 3 short sentences. Name the key idea, then time and spa
         ...history.map((e) => {
           const li = document.createElement('li');
           li.className = 'snap-item';
-          li.dataset.id = e.id;
           const head = document.createElement('div');
           head.className = 'snap-item-head';
           const img = document.createElement('img');
@@ -377,71 +353,34 @@ The explanation: at most 3 short sentences. Name the key idea, then time and spa
       count.textContent = history.length ? String(history.length) : '';
     }
 
-    function update(id: string, patch: Partial<Entry>) {
-      history = history.map((e) => (e.id === id ? { ...e, ...patch } : e));
-      const e = history.find((x) => x.id === id);
-      const li = list.querySelector<HTMLElement>(`[data-id="${id}"]`);
-      if (e && li) {
-        fillAnswer(li, e);
-        li.querySelector('.snap-item-meta')!.textContent =
-          new Date(e.at).toLocaleString() + (e.pending ? ' · thinking…' : '');
+    // Poll fast while something is thinking, slowly otherwise, never while hidden.
+    async function refresh() {
+      clearTimeout(pollTimer);
+      if (!getToken()) return;
+      try {
+        const next = (await (await call('/entries')).json()) as Entry[];
+        if (JSON.stringify(next) !== JSON.stringify(history)) {
+          history = next;
+          render();
+        }
+        empty.textContent = 'No answers yet.';
+      } catch (err) {
+        empty.textContent = err instanceof Error ? err.message : 'Could not load answers.';
+      }
+      if (document.visibilityState === 'visible') {
+        pollTimer = window.setTimeout(refresh, history.some((e) => e.pending) ? 2000 : 8000);
       }
     }
 
-    async function ask(entry: Entry, imageDataUrl: string) {
-      const client = new Anthropic({ apiKey: getKey(), dangerouslyAllowBrowser: true });
-      const prompt = entry.note
-        ? entry.note
-        : 'Solve what is in this image.';
-      try {
-        const stream = client.beta.messages.stream({
-          model: 'claude-opus-5-5',
-          max_tokens: 16000,
-          betas: ['server-side-fallback-2026-07-01'],
-          fallbacks: 'default',
-          output_config: { effort: 'medium' },
-          system: SYSTEM,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: 'image/jpeg',
-                    data: imageDataUrl.split(',')[1],
-                  },
-                },
-                { type: 'text', text: prompt },
-              ],
-            },
-          ],
-        });
-        let text = '';
-        stream.on('text', (delta) => {
-          text += delta;
-          update(entry.id, { answer: text });
-        });
-        const final = await stream.finalMessage();
-        if (final.stop_reason === 'refusal') {
-          update(entry.id, { pending: false, error: true, answer: text || 'Claude declined to answer this one.' });
-        } else {
-          update(entry.id, { pending: false });
-        }
-      } catch (err) {
-        let msg = 'Something went wrong.';
-        if (err instanceof Anthropic.AuthenticationError) msg = 'Invalid API key. Check the Settings tab.';
-        else if (err instanceof Anthropic.RateLimitError) msg = 'Rate limited. Try again in a moment.';
-        else if (err instanceof Anthropic.APIError) msg = `API error ${err.status ?? ''}: ${err.message}`;
-        else if (err instanceof Error) msg = err.message;
-        update(entry.id, { pending: false, error: true, answer: msg });
-      }
-      persist();
-    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh();
+    });
 
     document.querySelectorAll<HTMLButtonElement>('.snap-tabs button').forEach((b) => {
-      b.addEventListener('click', () => showTab(b.dataset.tab!));
+      b.addEventListener('click', () => {
+        showTab(b.dataset.tab!);
+        if (b.dataset.tab === 'answers') refresh();
+      });
     });
 
     fileInput.addEventListener('change', () => {
@@ -456,32 +395,24 @@ The explanation: at most 3 short sentences. Name the key idea, then time and spa
 
     sendBtn.addEventListener('click', async () => {
       if (!currentFile) return;
-      if (!getKey()) {
-        status.textContent = 'Add your API key in Settings first.';
+      if (!getToken()) {
+        status.textContent = 'Add the passphrase in Settings first.';
         showTab('settings');
         return;
       }
       sendBtn.disabled = true;
-      status.textContent = 'Preparing photo…';
-      let full: string, thumb: string;
+      status.textContent = 'Uploading…';
       try {
-        [full, thumb] = await Promise.all([resize(currentFile, 1568, 0.85), resize(currentFile, 160, 0.6)]);
-      } catch {
-        status.textContent = "Couldn't read that image. Try another photo.";
+        const [full, thumb] = await Promise.all([resize(currentFile, 1568, 0.8), resize(currentFile, 160, 0.6)]);
+        await call('/entries', {
+          method: 'POST',
+          body: JSON.stringify({ image: full.split(',')[1], thumb, note: note.value.trim() }),
+        });
+      } catch (err) {
+        status.textContent = err instanceof Error ? err.message : 'Upload failed. Try again.';
         sendBtn.disabled = false;
         return;
       }
-      const entry: Entry = {
-        id: crypto.randomUUID(),
-        at: Date.now(),
-        thumb,
-        note: note.value.trim(),
-        answer: '',
-        pending: true,
-      };
-      history = [entry, ...history].slice(0, MAX_ITEMS);
-      render();
-      persist();
 
       // Reset capture so the next photo can be taken right away.
       fileInput.value = '';
@@ -489,30 +420,35 @@ The explanation: at most 3 short sentences. Name the key idea, then time and spa
       preview.hidden = true;
       dropLabel.hidden = false;
       note.value = '';
-      status.textContent = 'Sent. Answer is in the Answers tab.';
+      status.textContent = 'Sent. The answer shows up in Answers on every device.';
       showTab('answers');
-
-      ask(entry, full);
+      refresh();
     });
 
-    clearBtn.addEventListener('click', () => {
-      if (!confirm('Delete all saved answers on this device?')) return;
-      history = [];
-      persist();
-      render();
+    clearBtn.addEventListener('click', async () => {
+      if (!confirm('Delete all saved answers on every device?')) return;
+      await call('/entries', { method: 'DELETE' }).catch(() => {});
+      refresh();
     });
 
     $('snap-save-key').addEventListener('click', () => {
       const v = keyInput.value.trim();
       if (!v || v.startsWith('••')) return;
-      save(KEY_STORE, v);
+      try {
+        localStorage.setItem(KEY_STORE, v);
+      } catch {}
       keyInput.value = '••••••••';
       showTab('capture');
-      status.textContent = 'Key saved.';
+      status.textContent = 'Saved.';
+      refresh();
     });
 
-    render();
-    if (!getKey()) showTab('settings');
+    if (getToken()) {
+      showTab('answers');
+      refresh();
+    } else {
+      showTab('settings');
+    }
   }
 
   setup();
