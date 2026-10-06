@@ -242,21 +242,6 @@ import Base from '../layouts/Base.astro';
     padding-top: 0.75rem;
     min-height: 4rem;
   }
-  :global(.snap-hpane.is-hidden > :not(.snap-hcover)) {
-    filter: blur(7px);
-    user-select: none;
-    pointer-events: none;
-  }
-  :global(.snap-hcover) {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--color-fg);
-  }
   :global(.snap-act.is-plain) {
     display: block;
     font-family: var(--font-mono);
@@ -443,7 +428,6 @@ import Base from '../layouts/Base.astro';
     let history: Entry[] = [];
     // Per card UI state, kept across re-renders from polling.
     const tabOf = new Map<string, number>();
-    const revealed = new Map<string, number>();
     let config: Config = { mode: 'lc', session: '' };
     const newBtn = $<HTMLButtonElement>('snap-new');
     let stream: MediaStream | null = null;
@@ -636,7 +620,6 @@ import Base from '../layouts/Base.astro';
         const sections: [string, string][] = [];
         for (let i = 1; i + 1 < parts.length; i += 2) sections.push([parts[i], parts[i + 1]]);
         const current = Math.min(tabOf.get(e.id) ?? 0, sections.length - 1);
-        const seen = revealed.get(e.id) ?? 0;
         const tabs = document.createElement('div');
         tabs.className = 'snap-htabs';
         sections.forEach(([name], i) => {
@@ -652,18 +635,6 @@ import Base from '../layouts/Base.astro';
         const pane = document.createElement('div');
         pane.className = 'snap-hpane';
         pane.append(...renderBody(sections[current][1]));
-        if (current > seen) {
-          // Later hints stay blurred until tapped, so nothing is spoiled by accident.
-          pane.classList.add('is-hidden');
-          const cover = document.createElement('button');
-          cover.className = 'snap-hcover';
-          cover.textContent = 'Tap to reveal';
-          cover.addEventListener('click', () => {
-            revealed.set(e.id, current);
-            fillAnswer(li, e);
-          });
-          pane.append(cover);
-        }
         answer.replaceChildren(tabs, pane);
         return;
       }
