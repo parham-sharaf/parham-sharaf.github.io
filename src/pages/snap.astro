@@ -6,7 +6,7 @@ import Base from '../layouts/Base.astro';
   <section class="pb-6">
     <h1 class="text-4xl font-semibold tracking-tight">Snap</h1>
     <p class="mt-3 text-sm" style="color: var(--color-fg-muted);">
-      Snap a problem, get the answer and a one line why.
+      Tap to capture. Answers sync to every device.
     </p>
   </section>
 
@@ -17,13 +17,13 @@ import Base from '../layouts/Base.astro';
   </div>
 
   <section data-panel="capture" class="snap-panel">
-    <label class="snap-drop" for="snap-file">
-      <img id="snap-preview" alt="" hidden />
-      <span id="snap-drop-label">Tap to take a photo</span>
-    </label>
+    <div class="snap-cam">
+      <video id="snap-video" playsinline muted autoplay></video>
+      <div id="snap-flash" class="snap-flash"></div>
+      <label id="snap-fallback" class="snap-fallback" for="snap-file" hidden>Tap to take a photo</label>
+      <button id="snap-shutter" class="snap-shutter" aria-label="Capture"></button>
+    </div>
     <input id="snap-file" type="file" accept="image/*" capture="environment" hidden />
-    <textarea id="snap-note" rows="2" placeholder="Optional: extra instructions (language, constraints, fix my bug...)"></textarea>
-    <button id="snap-send" class="snap-primary" disabled>Ask Claude</button>
     <p id="snap-status" class="snap-status"></p>
   </section>
 
@@ -73,22 +73,62 @@ import Base from '../layouts/Base.astro';
   .snap-panel[hidden] {
     display: none;
   }
-  .snap-drop {
+  .snap-cam {
+    position: relative;
+    aspect-ratio: 3 / 4;
+    max-height: 72vh;
+    width: 100%;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: #000;
+  }
+  .snap-cam video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .snap-flash {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease-out;
+  }
+  .snap-flash.on {
+    opacity: 0.7;
+    transition: none;
+  }
+  .snap-fallback {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 14rem;
-    border: 1px dashed var(--color-border-strong);
-    border-radius: 0.75rem;
-    background: var(--color-bg-soft);
-    color: var(--color-fg-muted);
+    color: #ddd;
     cursor: pointer;
-    overflow: hidden;
   }
-  .snap-drop img {
-    max-height: 22rem;
-    width: 100%;
-    object-fit: contain;
+  .snap-fallback[hidden] {
+    display: none;
+  }
+  .snap-shutter {
+    position: absolute;
+    left: 50%;
+    bottom: 1.25rem;
+    width: 4.5rem;
+    height: 4.5rem;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: #fff;
+    border: 4px solid rgba(255, 255, 255, 0.45);
+    background-clip: padding-box;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+  }
+  .snap-shutter:active {
+    transform: translateX(-50%) scale(0.92);
+  }
+  .snap-shutter[hidden] {
+    display: none;
   }
   .snap-panel textarea,
   .snap-panel input[type='password'] {
@@ -202,6 +242,7 @@ import Base from '../layouts/Base.astro';
   // Cloudflare Worker in ~/Workspace/snap-worker: stores answers and calls Claude.
   const API = 'https://snap.snap-worker.workers.dev';
   const KEY_STORE = 'snap:token';
+  const TAB_STORE = 'snap:tab';
   const SPLIT = '===WHY===';
 
   interface Entry {
@@ -215,8 +256,8 @@ import Base from '../layouts/Base.astro';
   }
 
   // Phone photos are several MB; Claude reads ~1568px on the long edge at most.
-  async function resize(file: File, maxEdge: number, quality: number): Promise<string> {
-    const bitmap = await createImageBitmap(file);
+  async function resize(source: ImageBitmapSource, maxEdge: number, quality: number): Promise<string> {
+    const bitmap = await createImageBitmap(source);
     const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(bitmap.width * scale);
@@ -233,10 +274,10 @@ import Base from '../layouts/Base.astro';
 
     const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
     const fileInput = $<HTMLInputElement>('snap-file');
-    const preview = $<HTMLImageElement>('snap-preview');
-    const dropLabel = $('snap-drop-label');
-    const note = $<HTMLTextAreaElement>('snap-note');
-    const sendBtn = $<HTMLButtonElement>('snap-send');
+    const video = $<HTMLVideoElement>('snap-video');
+    const flash = $('snap-flash');
+    const fallback = $('snap-fallback');
+    const shutter = $<HTMLButtonElement>('snap-shutter');
     const status = $('snap-status');
     const list = $('snap-list');
     const empty = $('snap-empty');
@@ -245,7 +286,8 @@ import Base from '../layouts/Base.astro';
     const keyInput = $<HTMLInputElement>('snap-key');
 
     let history: Entry[] = [];
-    let currentFile: File | null = null;
+    let stream: MediaStream | null = null;
+    let inFlight = 0;
     let pollTimer: number | undefined;
 
     function getToken(): string {
@@ -278,6 +320,58 @@ import Base from '../layouts/Base.astro';
       document.querySelectorAll<HTMLElement>('.snap-panel').forEach((p) => {
         p.hidden = p.dataset.panel !== name;
       });
+      try {
+        localStorage.setItem(TAB_STORE, name);
+      } catch {}
+      if (name === 'capture') startCamera();
+      else stopCamera();
+    }
+
+    // Live preview so one tap captures; the native camera always asks "Use Photo".
+    async function startCamera() {
+      if (stream || document.visibilityState !== 'visible') return;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } },
+        });
+        video.srcObject = stream;
+        await video.play().catch(() => {});
+        fallback.hidden = true;
+        shutter.hidden = false;
+      } catch {
+        stream = null;
+        fallback.hidden = false;
+        shutter.hidden = true;
+      }
+    }
+
+    function stopCamera() {
+      stream?.getTracks().forEach((t) => t.stop());
+      stream = null;
+      video.srcObject = null;
+    }
+
+    function updateStatus(msg?: string) {
+      status.textContent = msg ?? (inFlight ? `Sending ${inFlight}…` : 'Sent ✓');
+    }
+
+    async function send(source: ImageBitmapSource) {
+      if (!getToken()) {
+        showTab('settings');
+        return;
+      }
+      inFlight++;
+      updateStatus();
+      try {
+        const [full, thumb] = await Promise.all([resize(source, 1568, 0.8), resize(source, 160, 0.6)]);
+        await call('/entries', { method: 'POST', body: JSON.stringify({ image: full.split(',')[1], thumb, note: '' }) });
+        inFlight--;
+        updateStatus();
+      } catch (err) {
+        inFlight--;
+        updateStatus(err instanceof Error ? err.message : 'Upload failed.');
+      }
     }
 
     // Splits "answer ===WHY=== explanation" and renders fenced code as <pre>.
@@ -310,7 +404,7 @@ import Base from '../layouts/Base.astro';
             p.textContent = text.trim();
             return p;
           })
-          .filter((n): n is HTMLElement => n !== null),
+          .filter((n): n is HTMLParagraphElement | HTMLPreElement => n !== null),
       );
       if (!main && e.pending) answer.textContent = 'Thinking…';
       why.textContent = rest;
@@ -373,8 +467,14 @@ import Base from '../layouts/Base.astro';
     }
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') refresh();
+      if (document.visibilityState === 'visible') {
+        refresh();
+        if (!document.querySelector<HTMLElement>('[data-panel="capture"]')!.hidden) startCamera();
+      } else {
+        stopCamera();
+      }
     });
+    document.addEventListener('astro:before-swap', stopCamera, { once: true });
 
     document.querySelectorAll<HTMLButtonElement>('.snap-tabs button').forEach((b) => {
       b.addEventListener('click', () => {
@@ -383,46 +483,23 @@ import Base from '../layouts/Base.astro';
       });
     });
 
-    fileInput.addEventListener('change', () => {
-      currentFile = fileInput.files?.[0] ?? null;
-      if (!currentFile) return;
-      preview.src = URL.createObjectURL(currentFile);
-      preview.hidden = false;
-      dropLabel.hidden = true;
-      sendBtn.disabled = false;
-      status.textContent = '';
+    shutter.addEventListener('click', async () => {
+      if (!video.videoWidth) return;
+      flash.classList.add('on');
+      requestAnimationFrame(() => requestAnimationFrame(() => flash.classList.remove('on')));
+      // Grab the frame now so the upload uses what was on screen at the tap.
+      const frame = document.createElement('canvas');
+      frame.width = video.videoWidth;
+      frame.height = video.videoHeight;
+      frame.getContext('2d')!.drawImage(video, 0, 0);
+      send(frame);
     });
 
-    sendBtn.addEventListener('click', async () => {
-      if (!currentFile) return;
-      if (!getToken()) {
-        status.textContent = 'Add the passphrase in Settings first.';
-        showTab('settings');
-        return;
-      }
-      sendBtn.disabled = true;
-      status.textContent = 'Uploading…';
-      try {
-        const [full, thumb] = await Promise.all([resize(currentFile, 1568, 0.8), resize(currentFile, 160, 0.6)]);
-        await call('/entries', {
-          method: 'POST',
-          body: JSON.stringify({ image: full.split(',')[1], thumb, note: note.value.trim() }),
-        });
-      } catch (err) {
-        status.textContent = err instanceof Error ? err.message : 'Upload failed. Try again.';
-        sendBtn.disabled = false;
-        return;
-      }
-
-      // Reset capture so the next photo can be taken right away.
+    // Fallback when the camera can't be opened in page (permission denied, old browser).
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
       fileInput.value = '';
-      currentFile = null;
-      preview.hidden = true;
-      dropLabel.hidden = false;
-      note.value = '';
-      status.textContent = 'Sent. The answer shows up in Answers on every device.';
-      showTab('answers');
-      refresh();
+      if (file) send(file);
     });
 
     clearBtn.addEventListener('click', async () => {
@@ -443,12 +520,12 @@ import Base from '../layouts/Base.astro';
       refresh();
     });
 
-    if (getToken()) {
-      showTab('answers');
-      refresh();
-    } else {
-      showTab('settings');
-    }
+    let lastTab = 'capture';
+    try {
+      lastTab = localStorage.getItem(TAB_STORE) ?? 'capture';
+    } catch {}
+    showTab(getToken() ? lastTab : 'settings');
+    refresh();
   }
 
   setup();
