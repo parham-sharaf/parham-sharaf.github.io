@@ -76,7 +76,6 @@ import Base from '../layouts/Base.astro';
   .snap-cam {
     position: relative;
     aspect-ratio: 3 / 4;
-    max-height: 72vh;
     width: 100%;
     border-radius: 0.75rem;
     overflow: hidden;
@@ -85,7 +84,7 @@ import Base from '../layouts/Base.astro';
   .snap-cam video {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
   }
   .snap-flash {
     position: absolute;
@@ -244,6 +243,8 @@ import Base from '../layouts/Base.astro';
   const KEY_STORE = 'snap:token';
   const TAB_STORE = 'snap:tab';
   const LENS_STORE = 'snap:lens';
+  // The ultra wide lens is 0.5x; cropping its center by 1.4 gives roughly 0.7x.
+  const WIDE_CROP = 1.4;
   const SPLIT = '===WHY===';
 
   interface Entry {
@@ -276,6 +277,7 @@ import Base from '../layouts/Base.astro';
     const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
     const fileInput = $<HTMLInputElement>('snap-file');
     const video = $<HTMLVideoElement>('snap-video');
+    const cam = video.parentElement!;
     const flash = $('snap-flash');
     const fallback = $('snap-fallback');
     const shutter = $<HTMLButtonElement>('snap-shutter');
@@ -288,6 +290,7 @@ import Base from '../layouts/Base.astro';
 
     let history: Entry[] = [];
     let stream: MediaStream | null = null;
+    let crop = 1;
     let inFlight = 0;
     let pollTimer: number | undefined;
 
@@ -332,9 +335,12 @@ import Base from '../layouts/Base.astro';
     async function startCamera() {
       if (stream || document.visibilityState !== 'visible') return;
       try {
+        crop = 1;
         stream = await openWideCamera();
         video.srcObject = stream;
         await video.play().catch(() => {});
+        if (video.videoWidth) cam.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+        video.style.transform = `scale(${crop})`;
         fallback.hidden = true;
         shutter.hidden = false;
       } catch {
@@ -354,7 +360,9 @@ import Base from '../layouts/Base.astro';
       } catch {}
       if (saved) {
         try {
-          return await navigator.mediaDevices.getUserMedia({ audio: false, video: { deviceId: { exact: saved }, ...size } });
+          const s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { deviceId: { exact: saved }, ...size } });
+          crop = WIDE_CROP;
+          return s;
         } catch {}
       }
       const s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment', ...size } });
@@ -366,6 +374,7 @@ import Base from '../layouts/Base.astro';
         try {
           localStorage.setItem(LENS_STORE, ultra.deviceId);
         } catch {}
+        crop = WIDE_CROP;
         return wide;
       }
       // No separate ultra wide device: zoom out as far as this camera allows.
@@ -517,10 +526,14 @@ import Base from '../layouts/Base.astro';
       flash.classList.add('on');
       requestAnimationFrame(() => requestAnimationFrame(() => flash.classList.remove('on')));
       // Grab the frame now so the upload uses what was on screen at the tap.
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
       const frame = document.createElement('canvas');
-      frame.width = video.videoWidth;
-      frame.height = video.videoHeight;
-      frame.getContext('2d')!.drawImage(video, 0, 0);
+      frame.width = Math.round(vw / crop);
+      frame.height = Math.round(vh / crop);
+      frame
+        .getContext('2d')!
+        .drawImage(video, (vw - frame.width) / 2, (vh - frame.height) / 2, frame.width, frame.height, 0, 0, frame.width, frame.height);
       send(frame);
     });
 
