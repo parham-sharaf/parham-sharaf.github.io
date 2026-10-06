@@ -28,6 +28,11 @@ import Base from '../layouts/Base.astro';
   </section>
 
   <section data-panel="answers" class="snap-panel" hidden>
+    <div class="snap-modes" role="radiogroup" aria-label="Section">
+      <button data-mode="lc" aria-pressed="true">LeetCode <span>Python</span></button>
+      <button data-mode="ai" aria-pressed="false">AI round <span>C++</span></button>
+    </div>
+    <button id="snap-new" class="snap-secondary" hidden>New problem</button>
     <p id="snap-empty" class="snap-status">No answers yet.</p>
     <ol id="snap-list" class="snap-list"></ol>
     <button id="snap-clear" class="snap-secondary" hidden>Clear history</button>
@@ -160,6 +165,57 @@ import Base from '../layouts/Base.astro';
     color: var(--color-fg-dim);
     text-decoration: underline;
   }
+  .snap-modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: 0.6rem;
+    background: var(--color-bg-soft);
+    border: 1px solid var(--color-border);
+  }
+  .snap-modes button {
+    padding: 0.6rem;
+    border-radius: 0.45rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-fg-dim);
+  }
+  .snap-modes button span {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 0.75rem;
+    margin-left: 0.3rem;
+  }
+  .snap-modes button[aria-pressed='true'] {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    box-shadow: 0 0 0 1px var(--color-border-strong);
+  }
+  :global(.snap-item-step) {
+    display: inline-block;
+    margin-bottom: 0.6rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+  }
+  :global(.snap-item-step[hidden]) {
+    display: none;
+  }
+  :global(.snap-item.is-merged) {
+    padding: 0.5rem 0.9rem;
+  }
+  :global(.snap-item.is-merged .snap-item-head) {
+    margin-top: 0;
+  }
+  :global(.snap-item.is-old) {
+    opacity: 0.55;
+  }
   .snap-status {
     font-size: 0.8rem;
     color: var(--color-fg-dim);
@@ -246,9 +302,26 @@ import Base from '../layouts/Base.astro';
   // The ultra wide lens is 0.5x; cropping its center by 1.4 gives roughly 0.7x.
   const WIDE_CROP = 1.4;
   const SPLIT = '===WHY===';
+  const STEP_LABELS: Record<string, string> = {
+    SOLUTION: 'Solution',
+    ASK_AI: 'Ask the AI',
+    OPEN_FILE: 'Open file',
+    RUN_TESTS: 'Run tests',
+    RETAKE: 'Retake photo',
+  };
+
+  type Mode = 'lc' | 'ai';
+
+  interface Config {
+    mode: Mode;
+    session: string;
+  }
 
   interface Entry {
     id: string;
+    mode?: Mode;
+    session?: string;
+    merged?: boolean;
     at: number;
     thumb: string;
     note: string;
@@ -289,6 +362,8 @@ import Base from '../layouts/Base.astro';
     const keyInput = $<HTMLInputElement>('snap-key');
 
     let history: Entry[] = [];
+    let config: Config = { mode: 'lc', session: '' };
+    const newBtn = $<HTMLButtonElement>('snap-new');
     let stream: MediaStream | null = null;
     let crop = 1;
     let inFlight = 0;
@@ -422,9 +497,17 @@ import Base from '../layouts/Base.astro';
         why.hidden = true;
         return;
       }
-      const cut = e.answer.indexOf(SPLIT);
-      const main = (cut === -1 ? e.answer : e.answer.slice(0, cut)).trim();
-      const rest = cut === -1 ? '' : e.answer.slice(cut + SPLIT.length).trim();
+      const step = li.querySelector<HTMLElement>('.snap-item-step')!;
+      let body = e.answer;
+      const m = e.mode === 'ai' ? body.match(/^\s*STEP:\s*([A-Z_]+)[^\n]*\n?/) : null;
+      step.hidden = !m;
+      if (m) {
+        step.textContent = STEP_LABELS[m[1]] ?? m[1];
+        body = body.slice(m[0].length);
+      }
+      const cut = body.indexOf(SPLIT);
+      const main = (cut === -1 ? body : body.slice(0, cut)).trim();
+      const rest = cut === -1 ? '' : body.slice(cut + SPLIT.length).trim();
       const parts = main.split(/```[^\n]*\n?/);
       answer.replaceChildren(
         ...parts
@@ -449,9 +532,22 @@ import Base from '../layouts/Base.astro';
       why.hidden = !rest;
     }
 
+    function visible(): Entry[] {
+      return history.filter((e) =>
+        config.mode === 'ai' ? e.mode === 'ai' && e.session === config.session : (e.mode ?? 'lc') === 'lc',
+      );
+    }
+
     function render() {
+      document.querySelectorAll<HTMLButtonElement>('.snap-modes button').forEach((b) => {
+        b.setAttribute('aria-pressed', String(b.dataset.mode === config.mode));
+      });
+      newBtn.hidden = config.mode !== 'ai';
+      const shown = visible();
+      // In an AI round only the newest answer is the live instruction; older steps fade.
+      const live = shown.find((e) => !e.merged)?.id;
       list.replaceChildren(
-        ...history.map((e) => {
+        ...shown.map((e) => {
           const li = document.createElement('li');
           li.className = 'snap-item';
           const head = document.createElement('div');
@@ -462,40 +558,64 @@ import Base from '../layouts/Base.astro';
           const meta = document.createElement('div');
           const time = document.createElement('div');
           time.className = 'snap-item-meta';
-          time.textContent = new Date(e.at).toLocaleString() + (e.pending ? ' · thinking…' : '');
+          time.textContent =
+            new Date(e.at).toLocaleTimeString() + (e.pending ? ' · thinking…' : e.merged ? ' · added to next answer' : '');
           meta.append(time);
-          if (e.note) {
-            const n = document.createElement('div');
-            n.className = 'snap-item-note';
-            n.textContent = e.note;
-            meta.append(n);
-          }
           head.append(img, meta);
+          if (e.merged) {
+            li.classList.add('is-merged');
+            li.append(head);
+            return li;
+          }
+          if (config.mode === 'ai' && e.id !== live) li.classList.add('is-old');
+          const step = document.createElement('span');
+          step.className = 'snap-item-step';
           const answer = document.createElement('div');
           answer.className = 'snap-item-answer';
           const why = document.createElement('p');
           why.className = 'snap-item-why';
-          li.append(answer, why, head);
+          li.append(step, answer, why, head);
           fillAnswer(li, e);
           return li;
         }),
       );
-      empty.hidden = history.length > 0;
+      empty.textContent = config.mode === 'ai' ? 'Take a photo of the problem to start.' : 'No answers yet.';
+      empty.hidden = shown.length > 0;
       clearBtn.hidden = history.length === 0;
-      count.textContent = history.length ? String(history.length) : '';
+      count.textContent = shown.length ? String(shown.length) : '';
     }
+
+    async function setConfig(body: object) {
+      try {
+        config = (await (await call('/config', { method: 'POST', body: JSON.stringify(body) })).json()) as Config;
+        render();
+      } catch {}
+    }
+
+    document.querySelectorAll<HTMLButtonElement>('.snap-modes button').forEach((b) => {
+      b.addEventListener('click', () => {
+        config = { ...config, mode: b.dataset.mode as Mode };
+        render();
+        setConfig({ mode: b.dataset.mode });
+      });
+    });
+
+    newBtn.addEventListener('click', () => setConfig({ newSession: true }));
 
     // Poll fast while something is thinking, slowly otherwise, never while hidden.
     async function refresh() {
       clearTimeout(pollTimer);
       if (!getToken()) return;
       try {
-        const next = (await (await call('/entries')).json()) as Entry[];
-        if (JSON.stringify(next) !== JSON.stringify(history)) {
+        const [next, cfg] = await Promise.all([
+          call('/entries').then((r) => r.json() as Promise<Entry[]>),
+          call('/config').then((r) => r.json() as Promise<Config>),
+        ]);
+        if (JSON.stringify([next, cfg]) !== JSON.stringify([history, config])) {
           history = next;
+          config = cfg;
           render();
         }
-        empty.textContent = 'No answers yet.';
       } catch (err) {
         empty.textContent = err instanceof Error ? err.message : 'Could not load answers.';
       }
