@@ -244,8 +244,51 @@ import Base from '../layouts/Base.astro';
   }
   :global(.snap-act.is-plain) {
     display: block;
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
+    font-size: 0.98rem;
+    line-height: 1.5;
+  }
+  /* Code colors, tuned per site theme. */
+  :global(.hljs-keyword),
+  :global(.hljs-built_in),
+  :global(.hljs-meta) {
+    color: var(--code-keyword);
+  }
+  :global(.hljs-title),
+  :global(.hljs-title.function_),
+  :global(.hljs-title.class_) {
+    color: var(--code-title);
+  }
+  :global(.hljs-string),
+  :global(.hljs-meta .hljs-string) {
+    color: var(--code-string);
+  }
+  :global(.hljs-number),
+  :global(.hljs-literal) {
+    color: var(--code-number);
+  }
+  :global(.hljs-comment) {
+    color: var(--code-comment);
+    font-style: italic;
+  }
+  :global(.hljs-type),
+  :global(.hljs-params) {
+    color: var(--code-type);
+  }
+  .snap-panel {
+    --code-keyword: #c792ea;
+    --code-title: #82aaff;
+    --code-string: #c3e88d;
+    --code-number: #f78c6c;
+    --code-comment: #6b6b70;
+    --code-type: #ffcb6b;
+  }
+  :global(html[data-theme='light']) .snap-panel {
+    --code-keyword: #7c3aed;
+    --code-title: #1d4ed8;
+    --code-string: #15803d;
+    --code-number: #c2410c;
+    --code-comment: #8a8a85;
+    --code-type: #a16207;
   }
   :global(.snap-item-step) {
     display: inline-block;
@@ -349,6 +392,13 @@ import Base from '../layouts/Base.astro';
 </style>
 
 <script>
+  import hljs from 'highlight.js/lib/core';
+  import python from 'highlight.js/lib/languages/python';
+  import cpp from 'highlight.js/lib/languages/cpp';
+
+  hljs.registerLanguage('python', python);
+  hljs.registerLanguage('cpp', cpp);
+
   // Cloudflare Worker in ~/Workspace/snap-worker: stores answers and calls Claude.
   const API = 'https://snap.snap-worker.workers.dev';
   const KEY_STORE = 'snap:token';
@@ -365,6 +415,9 @@ import Base from '../layouts/Base.astro';
     RETAKE: 'Retake photo',
   };
   const SECTION_LABELS: Record<string, string> = {
+    IDEA: 'Idea',
+    PLAN: 'Plan',
+    CODE: 'Code',
     PATTERN: 'Pattern',
     STATE: 'State',
     STEPS: 'Steps',
@@ -554,22 +607,17 @@ import Base from '../layouts/Base.astro';
     }
 
     // Splits "answer ===WHY=== explanation" and renders fenced code as <pre>.
-    // Code fences become <pre>; other lines become "LABEL: value" rows.
-    function renderBody(text: string): HTMLElement[] {
-      return text
-        .split(/```[^\n]*\n?/)
-        .map((part, i): HTMLElement | null => {
-          if (i % 2 === 1) {
-            const pre = document.createElement('pre');
-            const code = document.createElement('code');
-            code.textContent = part.replace(/\n$/, '');
-            pre.append(code);
-            return pre;
-          }
-          if (!part.trim()) return null;
+    // Code fences become highlighted <pre>; "LABEL: value" lines become rows; other lines stay prose.
+    function renderBody(text: string, fallbackLang: string): HTMLElement[] {
+      // A split with a capture group yields [text, lang, code, text, lang, code, ...].
+      const parts = text.split(/```([^\n]*)\n?/);
+      const out: HTMLElement[] = [];
+      for (let i = 0; i < parts.length; i += 3) {
+        const prose = parts[i];
+        if (prose.trim()) {
           const acts = document.createElement('div');
           acts.className = 'snap-acts';
-          for (const line of part.trim().split('\n')) {
+          for (const line of prose.trim().split('\n')) {
             if (!line.trim()) continue;
             const row = document.createElement('div');
             row.className = 'snap-act';
@@ -588,9 +636,22 @@ import Base from '../layouts/Base.astro';
             }
             acts.append(row);
           }
-          return acts;
-        })
-        .filter((n): n is HTMLElement => n !== null);
+          out.push(acts);
+        }
+        if (i + 2 < parts.length) {
+          const lang = (parts[i + 1].trim().toLowerCase() || fallbackLang).replace(/^(c\+\+|cc|cxx)$/, 'cpp');
+          const src = parts[i + 2].replace(/\n$/, '');
+          const pre = document.createElement('pre');
+          const code = document.createElement('code');
+          code.className = 'hljs';
+          // highlight.js escapes the source, so its HTML output is safe to insert.
+          if (hljs.getLanguage(lang)) code.innerHTML = hljs.highlight(src, { language: lang }).value;
+          else code.textContent = src;
+          pre.append(code);
+          out.push(pre);
+        }
+      }
+      return out;
     }
 
     function fillAnswer(li: HTMLElement, e: Entry) {
@@ -634,7 +695,7 @@ import Base from '../layouts/Base.astro';
         });
         const pane = document.createElement('div');
         pane.className = 'snap-hpane';
-        pane.append(...renderBody(sections[current][1]));
+        pane.append(...renderBody(sections[current][1], e.mode === 'ai' ? 'cpp' : 'python'));
         answer.replaceChildren(tabs, pane);
         return;
       }
@@ -642,7 +703,7 @@ import Base from '../layouts/Base.astro';
       const cut = body.indexOf(SPLIT);
       const main = (cut === -1 ? body : body.slice(0, cut)).trim();
       const rest = cut === -1 ? '' : body.slice(cut + SPLIT.length).trim();
-      answer.replaceChildren(...renderBody(main));
+      answer.replaceChildren(...renderBody(main, e.mode === 'ai' ? 'cpp' : 'python'));
       if (!main && e.pending) answer.textContent = 'Thinking…';
       why.textContent = rest;
       why.hidden = !rest;
