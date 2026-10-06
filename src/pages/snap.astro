@@ -85,7 +85,7 @@ import Base from '../layouts/Base.astro';
   .snap-cam video {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
   }
   .snap-flash {
     position: absolute;
@@ -243,6 +243,7 @@ import Base from '../layouts/Base.astro';
   const API = 'https://snap.snap-worker.workers.dev';
   const KEY_STORE = 'snap:token';
   const TAB_STORE = 'snap:tab';
+  const LENS_STORE = 'snap:lens';
   const SPLIT = '===WHY===';
 
   interface Entry {
@@ -331,10 +332,7 @@ import Base from '../layouts/Base.astro';
     async function startCamera() {
       if (stream || document.visibilityState !== 'visible') return;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } },
-        });
+        stream = await openWideCamera();
         video.srcObject = stream;
         await video.play().catch(() => {});
         fallback.hidden = true;
@@ -344,6 +342,37 @@ import Base from '../layouts/Base.astro';
         fallback.hidden = false;
         shutter.hidden = true;
       }
+    }
+
+    // Prefer the 0.5x ultra wide lens. Labels only appear after permission, so the
+    // first visit opens the default back camera, finds the ultra wide, then switches.
+    async function openWideCamera(): Promise<MediaStream> {
+      const size = { width: { ideal: 3840 }, height: { ideal: 2160 } };
+      let saved = '';
+      try {
+        saved = localStorage.getItem(LENS_STORE) ?? '';
+      } catch {}
+      if (saved) {
+        try {
+          return await navigator.mediaDevices.getUserMedia({ audio: false, video: { deviceId: { exact: saved }, ...size } });
+        } catch {}
+      }
+      const s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment', ...size } });
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const ultra = devices.find((d) => d.kind === 'videoinput' && /ultra ?wide/i.test(d.label));
+      if (ultra && ultra.deviceId !== s.getVideoTracks()[0].getSettings().deviceId) {
+        s.getTracks().forEach((t) => t.stop());
+        const wide = await navigator.mediaDevices.getUserMedia({ audio: false, video: { deviceId: { exact: ultra.deviceId }, ...size } });
+        try {
+          localStorage.setItem(LENS_STORE, ultra.deviceId);
+        } catch {}
+        return wide;
+      }
+      // No separate ultra wide device: zoom out as far as this camera allows.
+      const track = s.getVideoTracks()[0];
+      const zoom = (track.getCapabilities?.() as { zoom?: { min: number } } | undefined)?.zoom;
+      if (zoom) await track.applyConstraints({ advanced: [{ zoom: zoom.min } as MediaTrackConstraintSet] }).catch(() => {});
+      return s;
     }
 
     function stopCamera() {
