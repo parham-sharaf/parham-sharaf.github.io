@@ -20,6 +20,13 @@ html[data-theme='dark'] {
   --color-fg-dim: #6b6b70;
   --color-accent: #ff6a1f;
   --color-accent-soft: #ff6a1f1a;
+
+  /* Chart tokens. Validated for colour-vision separation and contrast against
+     this surface. series-1 is --color-accent stepped down to #e5602a because
+     #ff6a1f sits above the OKLCH lightness band a dark surface needs. */
+  --chart-series-1: #e5602a;
+  --chart-series-2: #3987e5;
+  --chart-grid: #2a2a2f;
 }
 
 html[data-theme='light'] {
@@ -34,6 +41,12 @@ html[data-theme='light'] {
   --color-fg-dim: #8a8a85;
   --color-accent: #d9480f;
   --color-accent-soft: #d9480f14;
+
+  /* Chart tokens, stepped for the light surface. Here series-1 is exactly
+     --color-accent: #d9480f already validates against #fbfbfa. */
+  --chart-series-1: #d9480f;
+  --chart-series-2: #2a78d6;
+  --chart-grid: #c9c8c2;
 }
 
 @layer base {
