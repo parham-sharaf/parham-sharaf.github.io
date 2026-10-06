@@ -192,6 +192,30 @@ import Base from '../layouts/Base.astro';
     color: var(--color-fg);
     box-shadow: 0 0 0 1px var(--color-border-strong);
   }
+  :global(.snap-acts) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  :global(.snap-act) {
+    display: grid;
+    grid-template-columns: 4.5rem 1fr;
+    gap: 0.6rem;
+    align-items: baseline;
+  }
+  :global(.snap-act-label) {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--color-fg-dim);
+  }
+  :global(.snap-act-value) {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--color-fg);
+    overflow-wrap: anywhere;
+  }
   :global(.snap-item-step) {
     display: inline-block;
     margin-bottom: 0.6rem;
@@ -511,7 +535,7 @@ import Base from '../layouts/Base.astro';
       const parts = main.split(/```[^\n]*\n?/);
       answer.replaceChildren(
         ...parts
-          .map((text, i) => {
+          .map((text, i): HTMLElement | null => {
             if (i % 2 === 1) {
               const pre = document.createElement('pre');
               const code = document.createElement('code');
@@ -520,12 +544,36 @@ import Base from '../layouts/Base.astro';
               return pre;
             }
             if (!text.trim()) return null;
+            // AI round replies are "LABEL: value" lines; show each as a row.
+            if (e.mode === 'ai') {
+              const acts = document.createElement('div');
+              acts.className = 'snap-acts';
+              for (const line of text.trim().split('\n')) {
+                if (!line.trim()) continue;
+                const row = document.createElement('div');
+                row.className = 'snap-act';
+                const m = line.match(/^\s*([A-Z][A-Z ]{1,10}):\s*(.*)$/);
+                if (m) {
+                  const label = document.createElement('span');
+                  label.className = 'snap-act-label';
+                  label.textContent = m[1];
+                  const value = document.createElement('span');
+                  value.className = 'snap-act-value';
+                  value.textContent = m[2].replace(/^`(.*)`$/, '$1');
+                  row.append(label, value);
+                } else {
+                  row.textContent = line.trim();
+                }
+                acts.append(row);
+              }
+              return acts;
+            }
             const p = document.createElement('p');
             p.className = 'snap-item-result';
             p.textContent = text.trim();
             return p;
           })
-          .filter((n): n is HTMLParagraphElement | HTMLPreElement => n !== null),
+          .filter((n): n is HTMLElement => n !== null),
       );
       if (!main && e.pending) answer.textContent = 'Thinking…';
       why.textContent = rest;
